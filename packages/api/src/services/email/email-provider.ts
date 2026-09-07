@@ -1,8 +1,10 @@
 export interface EmailMessage {
   readonly to: string;
   readonly subject: string;
-  /** Plain-text body. Phase 0 sends text only; HTML arrives with a real vendor. */
+  /** Plain-text body. Always present, so a text-only client still reads it. */
   readonly text: string;
+  /** Optional HTML body. A provider that supports it sends both parts. */
+  readonly html?: string;
 }
 
 /**

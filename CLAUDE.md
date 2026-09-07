@@ -562,12 +562,12 @@ Everything below is handled outside this repository.
 
 **DNS — the one that will silently break production.** The refresh cookie is
 `SameSite=Lax`, which a browser only sends when the API and the web app are
-_same-site_, meaning they share a registrable domain. So
-`app.kosmosgalaxy.com.br` → `api.kosmosgalaxy.com.br` works, and
-`app.kosmosgalaxy.com.br` → `kosmos-api.fly.dev` sends no cookie at all: every
-silent refresh fails in production while working perfectly in development. If
-the API cannot share the domain, the cookie must become `SameSite=None; Secure`
-and CSRF protection has to be added.
+_same-site_, meaning they share a registrable domain (`kosmosdigital.com.br`).
+So `universo.kosmosdigital.com.br` → `api.kosmosdigital.com.br` works, and
+`universo.kosmosdigital.com.br` → `kosmos-api.fly.dev` sends no cookie at all:
+every silent refresh fails in production while working perfectly in development.
+If the API cannot share the domain, the cookie must become `SameSite=None;
+Secure` and CSRF protection has to be added.
 
 **`TRUST_PROXY` must match the real number of proxies.** Behind Caddy it is `1`.
 Too low and every request appears to come from the proxy — rate limits collapse
@@ -598,9 +598,17 @@ at 5 MB and restrict MIME types to `image/jpeg`, `image/png`, `image/webp` — t
 API enforces the same, so the bucket limits are a second fence. With
 `STORAGE_PROVIDER=none` the app runs fine and the upload endpoint answers 503.
 
+**Email — Resend.** Set `EMAIL_PROVIDER=resend` and `RESEND_API_KEY` (`re_…`,
+secret, server-only). The domain in `EMAIL_FROM` must be **verified in the
+Resend dashboard** first — add the DKIM/SPF/return-path DNS records Resend
+gives you for `kosmosdigital.com.br` (or a subdomain), or every send is
+rejected. With `EMAIL_PROVIDER=console` (the default) the message and its raw
+links print to stdout, which is how you get invitation and reset links in
+development. The provider is a thin `EmailProvider` over the Resend HTTP API; a
+failed send throws so it never fails silently.
+
 **Not yet needed, but coming:** Redis for shared rate limiting once the API runs
-more than one instance; a transactional email vendor's API key; Panda Video
-credentials in Phase 2.
+more than one instance.
 
 ---
 

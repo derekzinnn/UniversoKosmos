@@ -39,12 +39,24 @@ const envSchema = z
       .positive()
       .default(60 * 60),
 
-    WEB_APP_URL: z.url('WEB_APP_URL must be a full URL, e.g. https://app.kosmosgalaxy.com.br'),
+    WEB_APP_URL: z.url(
+      'WEB_APP_URL must be a full URL, e.g. https://universo.kosmosdigital.com.br',
+    ),
     COOKIE_DOMAIN: z.string().optional(),
     TRUST_PROXY: z.coerce.number().int().min(0).default(0),
 
-    EMAIL_PROVIDER: z.enum(['console']).default('console'),
-    EMAIL_FROM: z.string().min(1).default('Universo Kosmos <nao-responda@kosmosgalaxy.com.br>'),
+    /**
+     * `console` prints the message (and its raw links) to stdout for
+     * development; `resend` sends for real over the Resend HTTP API. The
+     * interface is the same to every service either way.
+     */
+    EMAIL_PROVIDER: z.enum(['console', 'resend']).default('console'),
+    EMAIL_FROM: z.string().min(1).default('Universo Kosmos <nao-responda@kosmosdigital.com.br>'),
+    /**
+     * Resend API key (`re_…`). Secret, server-only. Required when
+     * EMAIL_PROVIDER=resend; the domain in EMAIL_FROM must be verified in Resend.
+     */
+    RESEND_API_KEY: z.string().min(1).optional(),
 
     VIDEO_PROVIDER: z.enum(['fake', 'panda']).default('fake'),
     PANDA_API_KEY: z.string().min(1).optional(),
@@ -136,6 +148,13 @@ const envSchema = z
         code: 'custom',
         path: ['DATABASE_URL_TEST'],
         message: 'DATABASE_URL_TEST is required when NODE_ENV=test',
+      });
+    }
+    if (value.EMAIL_PROVIDER === 'resend' && !value.RESEND_API_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['RESEND_API_KEY'],
+        message: 'RESEND_API_KEY is required when EMAIL_PROVIDER=resend',
       });
     }
     if (value.STORAGE_PROVIDER === 'supabase') {

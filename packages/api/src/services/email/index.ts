@@ -1,19 +1,23 @@
 import { env } from '../../config/env.js';
 import { ConsoleEmailProvider } from './console-email-provider.js';
 import type { EmailProvider } from './email-provider.js';
+import { ResendEmailProvider } from './resend-email-provider.js';
 
 let provider: EmailProvider | undefined;
 
 /**
- * Phase 0 ships one implementation on purpose. The transactional email vendor
- * is an open product decision, and the interface means it can be answered
- * later without touching a single service.
+ * One implementation chosen at startup from `EMAIL_PROVIDER`: `console` prints
+ * to stdout for development, `resend` sends for real. The env schema guarantees
+ * `RESEND_API_KEY` is present when the provider is resend, so the assertion is
+ * for the type checker, not a real branch.
  */
 export function emailProvider(): EmailProvider {
   provider ??= (() => {
     switch (env.EMAIL_PROVIDER) {
       case 'console':
         return new ConsoleEmailProvider();
+      case 'resend':
+        return new ResendEmailProvider(env.RESEND_API_KEY as string, env.EMAIL_FROM);
     }
   })();
   return provider;
