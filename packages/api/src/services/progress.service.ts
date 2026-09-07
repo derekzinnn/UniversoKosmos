@@ -3,6 +3,7 @@ import { prisma } from '../db/prisma.js';
 import { createScopedDb, runInTenantScope } from '../db/scoped-db.js';
 import type { ScopedDb } from '../db/scoped-db.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../lib/errors.js';
+import { logger } from '../lib/logger.js';
 import {
   findAssignedTrackContainingLesson,
   listProgressForLessons,
@@ -13,6 +14,8 @@ import type { RequestContext } from '../types/request-context.js';
 import { metadataOf } from '../types/request-context.js';
 import { AuditAction, AuditEntity } from './audit.actions.js';
 import { audit } from './audit.service.js';
+import { emailProvider } from './email/index.js';
+import { trackCompletedNotification } from './email/templates.js';
 import { applyHeartbeat } from './progress.rules.js';
 import type { HeartbeatSettings } from './progress.rules.js';
 import { isTrackComplete, lessonsInOrder, nextLessonId, unlockedLessonIds } from './unlock.js';
@@ -240,6 +243,13 @@ export function recordHeartbeat(
       }
     });
 
+    // After the commit, best-effort: tell Kosmos a client just finished a
+    // whole track. Awaited only for its scoped name lookups; the send itself
+    // runs in the background inside the helper.
+    if (trackCompleted && !trackWasComplete) {
+      await notifyTrackCompleted(db, context, tenantId, assignment.trackId, assignment.track.title);
+    }
+
     return {
       lessonId,
       maxPositionSeconds: outcome.maxPositionSeconds,
@@ -368,6 +378,13 @@ export function markLessonComplete(
       }
     });
 
+    // The explicit "concluir" that closes the last lesson: alert Kosmos, after
+    // the commit. Awaited only for its scoped name lookups; the send runs in
+    // the background inside the helper.
+    if (trackCompleted && !trackWasComplete) {
+      await notifyTrackCompleted(db, context, tenantId, assignment.trackId, assignment.track.title);
+    }
+
     return {
       lessonId,
       completed: true,
@@ -430,4 +447,49 @@ export function describeTrackProgress(
  */
 function runAsClient<T>(context: RequestContext, fn: (db: ScopedDb) => Promise<T>): Promise<T> {
   return runInTenantScope(requireClient(context), fn);
+}
+
+/**
+ * Best-effort internal alert that a client finished a whole track.
+ *
+ * The names it needs are read here, awaited, because those reads are
+ * tenant-scoped and the guard requires the scope to still be active — so the
+ * caller must `await` this before its own callback returns. The email *send*,
+ * which touches no database, is then fired without awaiting: it must never add
+ * latency to the client's completion nor fail it, so a delivery problem is
+ * logged, never raised (the same spirit as `auditDetached`).
+ */
+async function notifyTrackCompleted(
+  db: ScopedDb,
+  context: RequestContext,
+  tenantId: string,
+  trackId: string,
+  trackTitle: string,
+): Promise<void> {
+  try {
+    const [tenant, user] = await Promise.all([
+      db.tenant.findFirst({ where: { id: tenantId } }),
+      db.user.findFirst({ where: { id: context.userId } }),
+    ]);
+
+    const base = env.WEB_APP_URL.replace(/\/+$/, '');
+    const message = trackCompletedNotification({
+      to: env.TRACK_COMPLETION_NOTIFY_EMAIL,
+      clientName: user?.name ?? 'Cliente',
+      clientEmail: context.email ?? user?.email ?? '',
+      tenantName: tenant?.name ?? 'Cliente',
+      trackTitle,
+      drilldownUrl: `${base}/admin/clients/${tenantId}`,
+    });
+
+    // The send needs no scope, so let it run in the background — the client's
+    // response does not wait on Resend, and a failure only logs.
+    void emailProvider()
+      .send(message)
+      .catch((error: unknown) => {
+        logger.error({ error, tenantId, trackId }, 'Failed to send track-completion notification');
+      });
+  } catch (error) {
+    logger.error({ error, tenantId, trackId }, 'Failed to prepare track-completion notification');
+  }
 }

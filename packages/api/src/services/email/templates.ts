@@ -157,6 +157,51 @@ export function invitationEmail(input: InvitationEmailInput): EmailMessage {
   };
 }
 
+interface TrackCompletedNotificationInput {
+  /** Internal Kosmos recipient. */
+  readonly to: string;
+  readonly clientName: string;
+  readonly clientEmail: string;
+  readonly tenantName: string;
+  readonly trackTitle: string;
+  /** Link into the per-client drill-down in the admin console. */
+  readonly drilldownUrl: string;
+}
+
+/**
+ * Internal alert: a client just finished an entire track. Sent to Kosmos, not
+ * to the client — so the copy addresses the team, and the button opens that
+ * client's drill-down in the admin console.
+ */
+export function trackCompletedNotification(input: TrackCompletedNotificationInput): EmailMessage {
+  const subject = `${input.tenantName} concluiu a trilha "${input.trackTitle}"`;
+  return {
+    to: input.to,
+    subject,
+    text: [
+      `Um cliente concluiu uma trilha no Universo Kosmos.`,
+      ``,
+      `Empresa:  ${input.tenantName}`,
+      `Pessoa:   ${input.clientName} (${input.clientEmail})`,
+      `Trilha:   ${input.trackTitle}`,
+      ``,
+      `Ver o progresso do cliente:`,
+      input.drilldownUrl,
+      ``,
+      `— Universo Kosmos`,
+    ].join('\n'),
+    html: layout({
+      title: 'Um cliente concluiu a trilha',
+      paragraphs: [
+        `${input.clientName} (${input.clientEmail}), da empresa ${input.tenantName}, acaba de concluir a trilha "${input.trackTitle}".`,
+      ],
+      ctaLabel: 'Ver progresso do cliente',
+      ctaUrl: input.drilldownUrl,
+      footnote: 'Este é um aviso interno da equipe Kosmos.',
+    }),
+  };
+}
+
 interface PasswordResetEmailInput {
   readonly to: string;
   readonly resetUrl: string;

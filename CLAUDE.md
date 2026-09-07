@@ -607,6 +607,14 @@ links print to stdout, which is how you get invitation and reset links in
 development. The provider is a thin `EmailProvider` over the Resend HTTP API; a
 failed send throws so it never fails silently.
 
+**`TRACK_COMPLETION_NOTIFY_EMAIL`** is the internal address alerted when a
+client finishes a whole track (default `kosmosinteligenciadigital@gmail.com`).
+The alert fires on the completion transition in both `progress.service.ts`
+paths — the explicit "concluir" and the automatic heartbeat — after the commit.
+Its scoped name lookups are awaited (the tenant guard needs the scope still
+active), but the send itself runs in the background: a client's own completion
+must never wait on it or be failed by it.
+
 **Not yet needed, but coming:** Redis for shared rate limiting once the API runs
 more than one instance.
 

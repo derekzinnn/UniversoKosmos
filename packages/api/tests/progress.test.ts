@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { setVideoProvider } from '../src/services/video/index.js';
 import { FakeVideoProvider } from '../src/services/video/fake-video-provider.js';
-import { api, bearer, loginAs } from './helpers/api.js';
+import { api, bearer, loginAs, useCapturingEmails } from './helpers/api.js';
 import { readAuditActions, rawQuery } from './helpers/database.js';
 import {
   assignTrackToTenant,
@@ -398,6 +398,39 @@ describe('POST /lessons/:id/complete', () => {
       [owner.id, lessons[0]!.id],
     );
     expect(rows[0]!.completed_at).not.toBeNull();
+  });
+
+  it('emails Kosmos when the explicit completion finishes the whole track', async () => {
+    const emails = useCapturingEmails();
+    // A single-lesson track: closing that lesson finishes the whole track.
+    const { tenant, owner, lessons, token } = await assignedClient(1, 50);
+
+    await api()
+      .post(`/lessons/${lessons[0]!.id}/complete`)
+      .set('Authorization', bearer(token))
+      .send({ positionSeconds: 48 })
+      .expect(200);
+
+    const notice = emails.sent.find((m) => m.subject.includes('concluiu a trilha'));
+    expect(notice).toBeDefined();
+    expect(notice?.to).toBe('kosmosinteligenciadigital@gmail.com');
+    expect(notice?.text).toContain(owner.email);
+    expect(notice?.html).toContain('/admin/clients/' + tenant.id);
+  });
+
+  it('does not email again for a lesson completed on an already-finished track', async () => {
+    const emails = useCapturingEmails();
+    const { lessons, token } = await assignedClient(1, 50);
+
+    for (let i = 0; i < 2; i += 1) {
+      await api()
+        .post(`/lessons/${lessons[0]!.id}/complete`)
+        .set('Authorization', bearer(token))
+        .send({ positionSeconds: 48 })
+        .expect(200);
+    }
+
+    expect(emails.sent.filter((m) => m.subject.includes('concluiu a trilha'))).toHaveLength(1);
   });
 
   it('refuses to complete when the client has not reached the end', async () => {

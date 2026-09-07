@@ -57,6 +57,12 @@ const envSchema = z
      * EMAIL_PROVIDER=resend; the domain in EMAIL_FROM must be verified in Resend.
      */
     RESEND_API_KEY: z.string().min(1).optional(),
+    /**
+     * Where the "a client finished a track" alert is sent. Internal Kosmos
+     * address, not client-facing. Sent best-effort, so a delivery failure never
+     * blocks the client's own completion.
+     */
+    TRACK_COMPLETION_NOTIFY_EMAIL: z.email().default('kosmosinteligenciadigital@gmail.com'),
 
     VIDEO_PROVIDER: z.enum(['fake', 'panda']).default('fake'),
     PANDA_API_KEY: z.string().min(1).optional(),
