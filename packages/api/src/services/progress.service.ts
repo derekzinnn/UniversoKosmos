@@ -15,7 +15,8 @@ import { metadataOf } from '../types/request-context.js';
 import { AuditAction, AuditEntity } from './audit.actions.js';
 import { audit } from './audit.service.js';
 import { emailProvider } from './email/index.js';
-import { trackCompletedNotification } from './email/templates.js';
+import type { EmailMessage } from './email/email-provider.js';
+import { trackCompletedCongrats, trackCompletedNotification } from './email/templates.js';
 import { applyHeartbeat } from './progress.rules.js';
 import type { HeartbeatSettings } from './progress.rules.js';
 import { isTrackComplete, lessonsInOrder, nextLessonId, unlockedLessonIds } from './unlock.js';
@@ -473,22 +474,37 @@ async function notifyTrackCompleted(
     ]);
 
     const base = env.WEB_APP_URL.replace(/\/+$/, '');
-    const message = trackCompletedNotification({
-      to: env.TRACK_COMPLETION_NOTIFY_EMAIL,
-      clientName: user?.name ?? 'Cliente',
-      clientEmail: context.email ?? user?.email ?? '',
-      tenantName: tenant?.name ?? 'Cliente',
-      trackTitle,
-      drilldownUrl: `${base}/admin/clients/${tenantId}`,
-    });
+    const clientName = user?.name ?? 'Cliente';
+    const clientEmail = context.email ?? user?.email ?? '';
 
-    // The send needs no scope, so let it run in the background — the client's
-    // response does not wait on Resend, and a failure only logs.
-    void emailProvider()
-      .send(message)
-      .catch((error: unknown) => {
-        logger.error({ error, tenantId, trackId }, 'Failed to send track-completion notification');
-      });
+    // The sends need no scope, so let them run in the background — the client's
+    // response waits on neither, and a failure only logs. Two audiences: the
+    // internal alert to Kosmos, and the congratulations to the client.
+    const fire = (label: string, message: EmailMessage) =>
+      void emailProvider()
+        .send(message)
+        .catch((error: unknown) => {
+          logger.error({ error, tenantId, trackId }, `Failed to send ${label}`);
+        });
+
+    fire(
+      'track-completion notification',
+      trackCompletedNotification({
+        to: env.TRACK_COMPLETION_NOTIFY_EMAIL,
+        clientName,
+        clientEmail,
+        tenantName: tenant?.name ?? 'Cliente',
+        trackTitle,
+        drilldownUrl: `${base}/admin/clients/${tenantId}`,
+      }),
+    );
+
+    if (clientEmail) {
+      fire(
+        'track-completion congratulations',
+        trackCompletedCongrats({ to: clientEmail, clientName, trackTitle, appUrl: base }),
+      );
+    }
   } catch (error) {
     logger.error({ error, tenantId, trackId }, 'Failed to prepare track-completion notification');
   }

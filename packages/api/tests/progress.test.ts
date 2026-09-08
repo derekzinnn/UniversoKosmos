@@ -416,6 +416,11 @@ describe('POST /lessons/:id/complete', () => {
     expect(notice?.to).toBe('kosmosinteligenciadigital@gmail.com');
     expect(notice?.text).toContain(owner.email);
     expect(notice?.html).toContain('/admin/clients/' + tenant.id);
+
+    // The client also gets a congratulations, addressed to them.
+    const congrats = emails.sent.find((m) => m.to === owner.email && m.subject.includes('Parabéns'));
+    expect(congrats).toBeDefined();
+    expect(congrats?.html).toContain('Universo Kosmos');
   });
 
   it('does not email again for a lesson completed on an already-finished track', async () => {

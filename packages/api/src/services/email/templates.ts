@@ -202,6 +202,50 @@ export function trackCompletedNotification(input: TrackCompletedNotificationInpu
   };
 }
 
+interface TrackCompletedCongratsInput {
+  readonly to: string;
+  readonly clientName: string;
+  readonly trackTitle: string;
+  /** Where the button sends them back — the app home. */
+  readonly appUrl: string;
+}
+
+/**
+ * Client-facing congratulations for finishing a whole track. Warm, brief, and
+ * addressed to the person — the counterpart to the internal alert that goes to
+ * Kosmos.
+ */
+export function trackCompletedCongrats(input: TrackCompletedCongratsInput): EmailMessage {
+  const firstName = input.clientName.trim().split(/\s+/)[0] || input.clientName;
+  const subject = `Parabéns! Você concluiu "${input.trackTitle}" 🎉`;
+  return {
+    to: input.to,
+    subject,
+    text: [
+      `Parabéns, ${firstName}!`,
+      ``,
+      `Você concluiu a trilha "${input.trackTitle}" no Universo Kosmos.`,
+      `É mais uma etapa do seu onboarding com a Kosmos concluída — muito obrigado`,
+      `pela dedicação.`,
+      ``,
+      `Sempre que quiser rever o conteúdo, é só acessar:`,
+      input.appUrl,
+      ``,
+      `— Equipe Kosmos`,
+    ].join('\n'),
+    html: layout({
+      title: `Parabéns, ${firstName}! 🎉`,
+      paragraphs: [
+        `Você concluiu a trilha "${input.trackTitle}" no Universo Kosmos.`,
+        `É mais uma etapa do seu onboarding com a Kosmos concluída — obrigado pela dedicação. Sempre que quiser, o conteúdo continua disponível para rever.`,
+      ],
+      ctaLabel: 'Acessar o Universo Kosmos',
+      ctaUrl: input.appUrl,
+      footnote: 'Se precisar de ajuda, é só responder a este e-mail.',
+    }),
+  };
+}
+
 interface PasswordResetEmailInput {
   readonly to: string;
   readonly resetUrl: string;
