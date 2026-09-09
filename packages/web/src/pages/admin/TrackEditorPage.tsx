@@ -237,12 +237,16 @@ export function TrackEditorPage() {
 
       <ConfirmDialog
         open={confirmDelete}
-        onOpenChange={setConfirmDelete}
+        onOpenChange={(next) => {
+          setConfirmDelete(next);
+          if (!next) removeTrack.reset();
+        }}
         title="Excluir esta trilha?"
         description="Esta ação não pode ser desfeita. Módulos e aulas vão junto."
         confirmLabel="Excluir trilha"
         destructive
         loading={removeTrack.isPending}
+        error={removeTrack.isError ? messageFor(removeTrack.error) : null}
         onConfirm={() => removeTrack.mutate()}
       />
     </div>
@@ -404,12 +408,16 @@ function ModuleCard({ module, index, total, trackId, onChanged, onError }: Modul
 
       <ConfirmDialog
         open={confirmDelete}
-        onOpenChange={setConfirmDelete}
+        onOpenChange={(next) => {
+          setConfirmDelete(next);
+          if (!next) remove.reset();
+        }}
         title={`Excluir o módulo "${module.title}"?`}
         description="As aulas dentro dele vão junto. Esta ação não pode ser desfeita."
         confirmLabel="Excluir módulo"
         destructive
         loading={remove.isPending}
+        error={remove.isError ? messageFor(remove.error) : null}
         onConfirm={() => remove.mutate()}
       />
     </li>
@@ -559,12 +567,16 @@ function LessonRow({
 
       <ConfirmDialog
         open={confirmDelete}
-        onOpenChange={setConfirmDelete}
+        onOpenChange={(next) => {
+          setConfirmDelete(next);
+          if (!next) remove.reset();
+        }}
         title={`Excluir a aula "${lesson.title}"?`}
         description="Esta ação não pode ser desfeita."
         confirmLabel="Excluir aula"
         destructive
         loading={remove.isPending}
+        error={remove.isError ? messageFor(remove.error) : null}
         onConfirm={() => remove.mutate()}
       />
     </li>
