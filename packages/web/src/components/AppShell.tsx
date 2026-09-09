@@ -4,6 +4,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '@/auth/useAuth';
 import { Logo } from '@/components/Logo';
 import { ProfileModal } from '@/components/ProfileModal';
+import { SupportButton } from '@/components/SupportButton';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -177,6 +178,8 @@ export function AppShell() {
       </footer>
 
       {user ? <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} /> : null}
+
+      <SupportButton />
     </div>
   );
 }
