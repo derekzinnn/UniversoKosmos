@@ -160,6 +160,55 @@ function setTenantArchived(
   });
 }
 
+/**
+ * Permanently delete a client — the irreversible counterpart to archiving.
+ *
+ * Guarded twice: only a client that is already **archived** (SUSPENDED) can be
+ * deleted, so "remove for good" is always a two-step, deliberate act — archive
+ * first, then delete. Everything the company owns goes with it, in one
+ * transaction: `User` and `Invitation` are `onDelete: Restrict`, so they are
+ * removed by hand first (deleting a user cascades its tokens, progress and
+ * watch events); the tenant row goes last and its remaining children —
+ * assignments, and any stray progress/watch — cascade with it.
+ *
+ * The audit line is written in the same transaction, and because `audit_logs`
+ * has no foreign key to `tenants`, the record of the deletion outlives the
+ * company it describes. Runs in a named global scope: staff own no tenant, and
+ * the tripwire permits scoped deletes only because the scope is explicitly
+ * global here.
+ */
+export function deleteTenant(context: RequestContext, id: string): Promise<void> {
+  return runInGlobalScope('superadmin:tenant-delete', async (db) => {
+    const existing = await findTenantById(db, id);
+    if (!existing) throw new NotFoundError('Tenant not found', 'TENANT_NOT_FOUND');
+
+    if (existing.status !== 'SUSPENDED') {
+      throw new ConflictError(
+        'A client must be archived before it can be permanently deleted',
+        'TENANT_NOT_ARCHIVED',
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Restrict-guarded children first…
+      await tx.invitation.deleteMany({ where: { tenantId: id } });
+      await tx.user.deleteMany({ where: { tenantId: id } });
+      // …then the tenant, whose assignments/progress/watch cascade with it.
+      await tx.tenant.delete({ where: { id } });
+
+      await audit(tx, {
+        action: AuditAction.TENANT_DELETED,
+        actor: { id: context.userId, email: context.email, role: context.role },
+        tenantId: id,
+        entityType: AuditEntity.TENANT,
+        entityId: id,
+        before: { name: existing.name, slug: existing.slug, status: existing.status },
+        request: metadataOf(context),
+      });
+    });
+  });
+}
+
 export function listTenants(context: RequestContext): Promise<PublicTenant[]> {
   return runAsContext(context, async (db) => {
     const tenants = await selectTenants(db);

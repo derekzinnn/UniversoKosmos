@@ -208,4 +208,6 @@ export const tenantApi = {
 
   reactivate: (id: string) =>
     request<{ tenant: Tenant }>(`/tenants/${id}/reactivate`, { method: 'POST' }),
+
+  remove: (id: string) => request<void>(`/tenants/${id}`, { method: 'DELETE' }),
 };
