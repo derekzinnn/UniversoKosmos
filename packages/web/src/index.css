@@ -178,6 +178,21 @@
       radial-gradient(60rem 40rem at 50% -10%, var(--accent), transparent 60%),
       radial-gradient(40rem 30rem at 110% 10%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 65%);
   }
+
+  /*
+   * The login's left panel as a piece of deep space: a near-black blue-violet
+   * ground with two faint nebula glows. The Starfield and the rockets sit on
+   * top of it. Always dark, in either theme — it is scenery, not a surface that
+   * follows the palette.
+   */
+  .auth-cosmos {
+    background-color: #05070f;
+    background-image:
+      radial-gradient(55rem 40rem at 15% -5%, color-mix(in srgb, #0140bf 45%, transparent), transparent 60%),
+      radial-gradient(45rem 35rem at 110% 20%, color-mix(in srgb, #6d3be0 30%, transparent), transparent 62%),
+      radial-gradient(60rem 50rem at 60% 115%, color-mix(in srgb, #0140bf 22%, transparent), transparent 65%),
+      linear-gradient(160deg, #070a16 0%, #05070f 55%, #04050b 100%);
+  }
 }
 
 /*
@@ -231,8 +246,8 @@
  * right-to-left (b), one straight up (c). Each keyframe spans the whole cycle
  * and only moves during its own slice — so the three cross one after another
  * with a short gap between them, no drift, on one clock. Used two ways: the
- * login background loops them (`uk-fly-*`), and a finished lesson plays them
- * once as a flurry (`uk-streak-*`). `motion-reduce` hides them.
+ * login background loops them (`uk-fly-*`). The lesson-completion flurry is a
+ * separate keyframe (`uk-launch`, below). `motion-reduce` hides them.
  */
 @keyframes uk-fly-a {
   0% {
@@ -282,6 +297,36 @@
   }
 }
 
+/*
+ * The lesson-completion flurry: many rockets launch from along the bottom and
+ * fly up off the top, each with its own horizontal drift, tilt, size and
+ * timing (all fed as CSS variables per rocket). Played once.
+ */
+@keyframes uk-launch {
+  0% {
+    transform: translate(0, 18vh) rotate(var(--rot, 0deg)) scale(var(--scale, 1));
+    opacity: 0;
+  }
+  8%,
+  88% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(var(--dx, 0), -125vh) rotate(var(--rot, 0deg)) scale(var(--scale, 1));
+    opacity: 0;
+  }
+}
+
+/* Stars breathing on the login's cosmic panel. */
+@keyframes uk-twinkle {
+  from {
+    opacity: var(--twinkle-min, 0.3);
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @layer components {
   .uk-fly-a {
     animation: uk-fly-a 6s linear infinite;
@@ -292,25 +337,23 @@
   .uk-fly-c {
     animation: uk-fly-c 6s linear infinite;
   }
-  /* Same paths, played once as a lesson-completion flurry. */
-  .uk-streak-a {
-    animation: uk-fly-a 2.4s linear 1 both;
-  }
-  .uk-streak-b {
-    animation: uk-fly-b 2.4s linear 1 both;
-  }
-  .uk-streak-c {
-    animation: uk-fly-c 2.4s linear 1 both;
+  .uk-twinkle {
+    animation-name: uk-twinkle;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+    animation-timing-function: ease-in-out;
+    will-change: opacity;
   }
   @media (prefers-reduced-motion: reduce) {
     .uk-fly-a,
     .uk-fly-b,
-    .uk-fly-c,
-    .uk-streak-a,
-    .uk-streak-b,
-    .uk-streak-c {
+    .uk-fly-c {
       animation: none;
       opacity: 0;
+    }
+    /* Stars stay, just stop breathing. */
+    .uk-twinkle {
+      animation: none;
     }
   }
 

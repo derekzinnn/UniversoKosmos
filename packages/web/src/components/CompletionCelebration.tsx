@@ -26,6 +26,23 @@ const PARTICLES = Array.from({ length: 18 }, (_, index) => {
   };
 });
 
+/**
+ * The rocket flurry: many rockets, big, launching from along the bottom and
+ * flying off the top with varied drift, tilt, size and timing. Fixed values
+ * (from index maths) so it never reflows, and it plays once per completion.
+ */
+const ROCKETS = Array.from({ length: 18 }, (_, i) => {
+  const drift = ((i * 53) % 20) - 10; // -10..+9 (vw)
+  return {
+    left: (i * 61) % 96, // 0..95 (%)
+    scale: 1.4 + ((i * 7) % 12) / 10, // 1.4..2.5 — noticeably bigger
+    drift,
+    rot: Math.round(drift * 2.2), // tilt matches the drift
+    delayMs: (i * 79) % 1000,
+    durationMs: 1800 + ((i * 37) % 800), // 1.8s..2.6s
+  };
+});
+
 export function CompletionCelebration({ active }: { active: boolean }) {
   if (!active) return null;
 
@@ -34,16 +51,24 @@ export function CompletionCelebration({ active }: { active: boolean }) {
       aria-hidden
       className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center overflow-hidden motion-reduce:hidden"
     >
-      {/* A flurry of rockets crossing the screen, played once. */}
-      <div className="uk-streak-a absolute bottom-0 left-0">
-        <Rocket />
-      </div>
-      <div className="uk-streak-b absolute right-0 bottom-0">
-        <Rocket />
-      </div>
-      <div className="uk-streak-c absolute bottom-0" style={{ left: 'calc(50% - 17px)' }}>
-        <Rocket />
-      </div>
+      {/* A flurry of rockets launching up the screen, played once. */}
+      {ROCKETS.map((r, i) => (
+        <div
+          key={i}
+          className="absolute bottom-0"
+          style={
+            {
+              left: `${String(r.left)}%`,
+              animation: `uk-launch ${String(r.durationMs)}ms linear ${String(r.delayMs)}ms 1 both`,
+              '--dx': `${String(r.drift)}vw`,
+              '--rot': `${String(r.rot)}deg`,
+              '--scale': String(r.scale),
+            } as CSSProperties
+          }
+        >
+          <Rocket />
+        </div>
+      ))}
 
       <div className="relative">
         <span className="kosmos-burst-ring" />

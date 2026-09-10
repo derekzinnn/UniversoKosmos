@@ -60,7 +60,7 @@ export function LessonPage() {
   const [celebrate, setCelebrate] = useState(false);
   const cheer = useCallback(() => {
     setCelebrate(true);
-    setTimeout(() => setCelebrate(false), 2600);
+    setTimeout(() => setCelebrate(false), 3800);
   }, []);
 
   const tracks = useQuery({ queryKey: ['my-tracks'], queryFn: contentApi.myTracks });
