@@ -55,11 +55,12 @@ export function LessonPage() {
   // than re-rendering on every timeupdate.
   const [nearEnd, setNearEnd] = useState(false);
   const [completedNextId, setCompletedNextId] = useState<string | null>(null);
-  // Fires the little burst, then clears itself so it can play again next lesson.
+  // Fires the burst and the rocket flurry, then clears itself so it can play
+  // again next lesson. Long enough for the three rockets to cross (~2.4s).
   const [celebrate, setCelebrate] = useState(false);
   const cheer = useCallback(() => {
     setCelebrate(true);
-    setTimeout(() => setCelebrate(false), 1100);
+    setTimeout(() => setCelebrate(false), 2600);
   }, []);
 
   const tracks = useQuery({ queryKey: ['my-tracks'], queryFn: contentApi.myTracks });
