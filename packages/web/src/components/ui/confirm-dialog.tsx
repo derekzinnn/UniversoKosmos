@@ -1,3 +1,4 @@
+import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Modal, ModalClose, ModalContent } from '@/components/ui/modal';
 
@@ -23,6 +24,7 @@ export function ConfirmDialog({
   cancelLabel = 'Cancelar',
   destructive = false,
   loading = false,
+  error = null,
   onConfirm,
 }: {
   open: boolean;
@@ -33,11 +35,19 @@ export function ConfirmDialog({
   cancelLabel?: string;
   destructive?: boolean;
   loading?: boolean;
+  /** Shown inside the dialog when the action fails, so the reason is not lost
+   *  behind the modal on a page-level banner. */
+  error?: string | null;
   onConfirm: () => void;
 }) {
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent title={title} description={description} className="max-w-md">
+        {error ? (
+          <Alert variant="error" className="mb-4">
+            {error}
+          </Alert>
+        ) : null}
         <div className="flex justify-end gap-3">
           <ModalClose asChild>
             <Button type="button" variant="ghost">

@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { messageFor } from '@/lib/api-error';
+import { isForceableDeleteError, messageFor } from '@/lib/api-error';
 import {
   contentApi,
   tenantApi,
@@ -90,7 +90,7 @@ export function TrackEditorPage() {
   });
 
   const removeTrack = useMutation({
-    mutationFn: () => contentApi.deleteTrack(trackId),
+    mutationFn: (force: boolean) => contentApi.deleteTrack(trackId, force),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['tracks'] });
       void navigate('/admin/tracks', { replace: true });
@@ -237,13 +237,23 @@ export function TrackEditorPage() {
 
       <ConfirmDialog
         open={confirmDelete}
-        onOpenChange={setConfirmDelete}
+        onOpenChange={(next) => {
+          setConfirmDelete(next);
+          if (!next) removeTrack.reset();
+        }}
         title="Excluir esta trilha?"
         description="Esta ação não pode ser desfeita. Módulos e aulas vão junto."
-        confirmLabel="Excluir trilha"
+        confirmLabel={isForceableDeleteError(removeTrack.error) ? 'Apagar mesmo assim' : 'Excluir trilha'}
         destructive
         loading={removeTrack.isPending}
-        onConfirm={() => removeTrack.mutate()}
+        error={
+          removeTrack.isError
+            ? isForceableDeleteError(removeTrack.error)
+              ? `${messageFor(removeTrack.error)} Apagar mesmo assim também apaga tudo — incluindo o progresso de quem assistiu.`
+              : messageFor(removeTrack.error)
+            : null
+        }
+        onConfirm={() => removeTrack.mutate(isForceableDeleteError(removeTrack.error))}
       />
     </div>
   );
@@ -285,7 +295,7 @@ function ModuleCard({ module, index, total, trackId, onChanged, onError }: Modul
   });
 
   const remove = useMutation({
-    mutationFn: () => contentApi.deleteModule(module.id),
+    mutationFn: (force: boolean) => contentApi.deleteModule(module.id, force),
     onSuccess: onChanged,
     onError,
   });
@@ -404,13 +414,23 @@ function ModuleCard({ module, index, total, trackId, onChanged, onError }: Modul
 
       <ConfirmDialog
         open={confirmDelete}
-        onOpenChange={setConfirmDelete}
+        onOpenChange={(next) => {
+          setConfirmDelete(next);
+          if (!next) remove.reset();
+        }}
         title={`Excluir o módulo "${module.title}"?`}
         description="As aulas dentro dele vão junto. Esta ação não pode ser desfeita."
-        confirmLabel="Excluir módulo"
+        confirmLabel={isForceableDeleteError(remove.error) ? 'Apagar mesmo assim' : 'Excluir módulo'}
         destructive
         loading={remove.isPending}
-        onConfirm={() => remove.mutate()}
+        error={
+          remove.isError
+            ? isForceableDeleteError(remove.error)
+              ? `${messageFor(remove.error)} Apagar mesmo assim também apaga o histórico de quem assistiu.`
+              : messageFor(remove.error)
+            : null
+        }
+        onConfirm={() => remove.mutate(isForceableDeleteError(remove.error))}
       />
     </li>
   );
@@ -468,7 +488,7 @@ function LessonRow({
   });
 
   const remove = useMutation({
-    mutationFn: () => contentApi.deleteLesson(lesson.id),
+    mutationFn: (force: boolean) => contentApi.deleteLesson(lesson.id, force),
     onSuccess: onChanged,
     onError,
   });
@@ -559,13 +579,23 @@ function LessonRow({
 
       <ConfirmDialog
         open={confirmDelete}
-        onOpenChange={setConfirmDelete}
+        onOpenChange={(next) => {
+          setConfirmDelete(next);
+          if (!next) remove.reset();
+        }}
         title={`Excluir a aula "${lesson.title}"?`}
         description="Esta ação não pode ser desfeita."
-        confirmLabel="Excluir aula"
+        confirmLabel={isForceableDeleteError(remove.error) ? 'Apagar mesmo assim' : 'Excluir aula'}
         destructive
         loading={remove.isPending}
-        onConfirm={() => remove.mutate()}
+        error={
+          remove.isError
+            ? isForceableDeleteError(remove.error)
+              ? `${messageFor(remove.error)} Apagar mesmo assim também apaga o histórico de quem assistiu.`
+              : messageFor(remove.error)
+            : null
+        }
+        onConfirm={() => remove.mutate(isForceableDeleteError(remove.error))}
       />
     </li>
   );

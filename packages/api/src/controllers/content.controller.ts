@@ -18,6 +18,11 @@ function param(req: Request, name: string): string {
   return req.params[name] as string;
 }
 
+/** `?force=true` on a delete — the deliberate override of a "has progress" guard. */
+function forced(req: Request): boolean {
+  return req.query.force === 'true';
+}
+
 // ── Tracks ────────────────────────────────────────────────────────────────
 
 export async function createTrackHandler(req: Request, res: Response): Promise<void> {
@@ -47,7 +52,7 @@ export async function updateTrackHandler(req: Request, res: Response): Promise<v
 }
 
 export async function deleteTrackHandler(req: Request, res: Response): Promise<void> {
-  await contentService.deleteTrack(requireContext(req), param(req, 'trackId'));
+  await contentService.deleteTrack(requireContext(req), param(req, 'trackId'), forced(req));
   res.status(204).send();
 }
 
@@ -93,7 +98,7 @@ export async function updateModuleHandler(req: Request, res: Response): Promise<
 }
 
 export async function deleteModuleHandler(req: Request, res: Response): Promise<void> {
-  await contentService.deleteModule(requireContext(req), param(req, 'moduleId'));
+  await contentService.deleteModule(requireContext(req), param(req, 'moduleId'), forced(req));
   res.status(204).send();
 }
 
@@ -134,7 +139,7 @@ export async function updateLessonHandler(req: Request, res: Response): Promise<
 }
 
 export async function deleteLessonHandler(req: Request, res: Response): Promise<void> {
-  await contentService.deleteLesson(requireContext(req), param(req, 'lessonId'));
+  await contentService.deleteLesson(requireContext(req), param(req, 'lessonId'), forced(req));
   res.status(204).send();
 }
 

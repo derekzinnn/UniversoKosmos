@@ -169,30 +169,36 @@ export function updateTrack(
   });
 }
 
-export function deleteTrack(context: RequestContext, trackId: string): Promise<void> {
+export function deleteTrack(
+  context: RequestContext,
+  trackId: string,
+  force = false,
+): Promise<void> {
   return runAsContext(context, async (db) => {
     const track = await content.findTrackById(db.raw, trackId);
     if (!track) throw trackNotFound();
 
-    // Two guards, both about not destroying something a client can see.
-    if (track.published) {
-      throw new ConflictError(
-        'Unpublish the track before deleting it',
-        'TRACK_PUBLISHED_CANNOT_DELETE',
-      );
-    }
+    // Two guards, both about not destroying something a client can see. `force`
+    // (a strong confirm on the web) waives both: the schema then cascades the
+    // track's modules, lessons, assignments and all watched progress with it.
+    if (!force) {
+      if (track.published) {
+        throw new ConflictError(
+          'Unpublish the track before deleting it',
+          'TRACK_PUBLISHED_CANNOT_DELETE',
+        );
+      }
 
-    const assignments = await countAssignmentsForTrack(db.raw, trackId);
-    if (assignments > 0) {
-      throw new ConflictError(
-        'This track is assigned to at least one client',
-        'TRACK_ASSIGNED_CANNOT_DELETE',
-      );
+      const assignments = await countAssignmentsForTrack(db.raw, trackId);
+      if (assignments > 0) {
+        throw new ConflictError(
+          'This track is assigned to at least one client',
+          'TRACK_ASSIGNED_CANNOT_DELETE',
+        );
+      }
     }
 
     await prisma.$transaction(async (tx) => {
-      // Modules, lessons and resources go with it: the schema cascades, and
-      // an unassigned, unpublished track has no progress hanging off it.
       await content.deleteTrack(tx, trackId);
 
       await audit(tx, {
@@ -201,7 +207,7 @@ export function deleteTrack(context: RequestContext, trackId: string): Promise<v
         tenantId: null,
         entityType: AuditEntity.TRACK,
         entityId: trackId,
-        before: { title: track.title, slug: track.slug },
+        before: { title: track.title, slug: track.slug, forced: force },
         request: metadataOf(context),
       });
     });
@@ -402,20 +408,26 @@ export function updateModule(
   });
 }
 
-export function deleteModule(context: RequestContext, moduleId: string): Promise<void> {
+export function deleteModule(
+  context: RequestContext,
+  moduleId: string,
+  force = false,
+): Promise<void> {
   return runAsContext(context, async (db) => {
     const module = await content.findModuleById(db.raw, moduleId);
     if (!module) throw moduleNotFound();
 
     // Deleting a module cascades to its lessons, and lessons cascade to
-    // progress. Erasing what a client has already watched is not something a
-    // careless click should be able to do.
-    const watched = await content.countProgressForModule(db.raw, moduleId);
-    if (watched > 0) {
-      throw new ConflictError(
-        'Clients have already started lessons in this module',
-        'MODULE_HAS_PROGRESS',
-      );
+    // progress. The guard stops a careless click from erasing watched history;
+    // `force` is the deliberate override that lets it through anyway.
+    if (!force) {
+      const watched = await content.countProgressForModule(db.raw, moduleId);
+      if (watched > 0) {
+        throw new ConflictError(
+          'Clients have already started lessons in this module',
+          'MODULE_HAS_PROGRESS',
+        );
+      }
     }
 
     await prisma.$transaction(async (tx) => {
@@ -428,7 +440,7 @@ export function deleteModule(context: RequestContext, moduleId: string): Promise
         tenantId: null,
         entityType: AuditEntity.MODULE,
         entityId: moduleId,
-        before: { trackId: module.trackId, title: module.title },
+        before: { trackId: module.trackId, title: module.title, forced: force },
         request: metadataOf(context),
       });
     });
@@ -552,14 +564,23 @@ export function updateLesson(
   });
 }
 
-export function deleteLesson(context: RequestContext, lessonId: string): Promise<void> {
+export function deleteLesson(
+  context: RequestContext,
+  lessonId: string,
+  force = false,
+): Promise<void> {
   return runAsContext(context, async (db) => {
     const lesson = await content.findLessonById(db.raw, lessonId);
     if (!lesson) throw lessonNotFound();
 
-    const watched = await content.countProgressForLesson(db.raw, lessonId);
-    if (watched > 0) {
-      throw new ConflictError('Clients have already started this lesson', 'LESSON_HAS_PROGRESS');
+    // The guard protects watched history from a careless click. `force` is the
+    // deliberate override (a strong confirm on the web): the DB then cascades
+    // the lesson's progress and watch events away with it.
+    if (!force) {
+      const watched = await content.countProgressForLesson(db.raw, lessonId);
+      if (watched > 0) {
+        throw new ConflictError('Clients have already started this lesson', 'LESSON_HAS_PROGRESS');
+      }
     }
 
     await prisma.$transaction(async (tx) => {
@@ -572,7 +593,7 @@ export function deleteLesson(context: RequestContext, lessonId: string): Promise
         tenantId: null,
         entityType: AuditEntity.LESSON,
         entityId: lessonId,
-        before: { moduleId: lesson.moduleId, title: lesson.title },
+        before: { moduleId: lesson.moduleId, title: lesson.title, forced: force },
         request: metadataOf(context),
       });
     });

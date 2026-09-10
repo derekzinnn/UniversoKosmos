@@ -30,6 +30,7 @@ const ACTION_LABELS: Readonly<Record<string, AuditActionLabel>> = {
   TENANT_UPDATED: { label: 'Empresa editada', tone: 'neutral' },
   TENANT_ARCHIVED: { label: 'Cliente arquivado', tone: 'alert' },
   TENANT_REACTIVATED: { label: 'Cliente reativado', tone: 'neutral' },
+  TENANT_DELETED: { label: 'Cliente excluído', tone: 'alert' },
 
   INVITATION_SENT: { label: 'Convite enviado', tone: 'neutral' },
   INVITATION_ACCEPTED: { label: 'Convite aceito', tone: 'neutral' },

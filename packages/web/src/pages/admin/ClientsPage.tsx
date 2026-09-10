@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, ArchiveRestore, Building2, MailPlus, Pencil, Plus } from 'lucide-react';
+import { Archive, ArchiveRestore, Building2, MailPlus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { InviteOwnerModal } from '@/components/admin/InviteOwnerModal';
 import { NewClientModal } from '@/components/admin/NewClientModal';
 import { RenameClientModal } from '@/components/admin/RenameClientModal';
@@ -102,8 +103,10 @@ const STATUS_BADGE: Readonly<Record<string, { label: string; variant: 'success' 
 
 function ClientCard({ tenant }: { tenant: Tenant }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const archived = tenant.status === 'SUSPENDED';
   const badge = STATUS_BADGE[tenant.status] ?? { label: tenant.status, variant: 'neutral' as const };
@@ -125,8 +128,33 @@ function ClientCard({ tenant }: { tenant: Tenant }) {
     onError: (caught) => setError(messageFor(caught)),
   });
 
+  const remove = useMutation({
+    mutationFn: () => tenantApi.remove(tenant.id),
+    onSuccess: async () => {
+      setConfirmDelete(false);
+      await refresh();
+    },
+    onError: (caught) => setError(messageFor(caught)),
+  });
+
+  const openDrilldown = () => void navigate(`/admin/clients/${tenant.id}`);
+
   return (
-    <Card className={`space-y-3 p-4 sm:p-5 ${archived ? 'opacity-70' : ''}`}>
+    <Card
+      role="link"
+      tabIndex={0}
+      aria-label={`Abrir ${tenant.name}`}
+      onClick={openDrilldown}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openDrilldown();
+        }
+      }}
+      className={`cursor-pointer space-y-3 p-4 transition-colors hover:border-ring/40 hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none sm:p-5 ${
+        archived ? 'opacity-70' : ''
+      }`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -136,17 +164,33 @@ function ClientCard({ tenant }: { tenant: Tenant }) {
           <p className="font-mono text-xs text-muted-foreground">/{tenant.slug}</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Actions stop propagation so using them never opens the drill-down. */}
+        <div
+          className="flex flex-wrap items-center gap-2"
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
           {archived ? (
-            <Button
-              variant="outline"
-              size="sm"
-              loading={reactivate.isPending}
-              onClick={() => reactivate.mutate()}
-            >
-              <ArchiveRestore aria-hidden />
-              Reativar
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                loading={reactivate.isPending}
+                onClick={() => reactivate.mutate()}
+              >
+                <ArchiveRestore aria-hidden />
+                Reativar
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-destructive"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 aria-hidden />
+                Apagar
+              </Button>
+            </>
           ) : (
             <>
               <RenameClientModal tenantId={tenant.id} currentName={tenant.name}>
@@ -192,6 +236,17 @@ function ClientCard({ tenant }: { tenant: Tenant }) {
         destructive
         loading={archive.isPending}
         onConfirm={() => archive.mutate()}
+      />
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title={`Apagar "${tenant.name}" para sempre?`}
+        description="Esta ação é irreversível. Apaga a empresa e tudo dela — usuários, convites, acessos às trilhas e todo o progresso assistido. O registro de auditoria da exclusão permanece."
+        confirmLabel="Apagar definitivamente"
+        destructive
+        loading={remove.isPending}
+        onConfirm={() => remove.mutate()}
       />
     </Card>
   );

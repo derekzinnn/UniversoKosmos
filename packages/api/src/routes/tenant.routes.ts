@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   archiveTenantHandler,
   createTenantHandler,
+  deleteTenantHandler,
   getTenantHandler,
   listTenantsHandler,
   reactivateTenantHandler,
@@ -42,3 +43,7 @@ tenantRouter.patch(
 // request — so no validateBody. SUPERADMIN only, like every other write here.
 tenantRouter.post('/:id/archive', requireRole('SUPERADMIN'), archiveTenantHandler);
 tenantRouter.post('/:id/reactivate', requireRole('SUPERADMIN'), reactivateTenantHandler);
+
+// Permanent, irreversible delete. Guarded in the service to archived clients
+// only, so this is always the second half of a deliberate two-step removal.
+tenantRouter.delete('/:id', requireRole('SUPERADMIN'), deleteTenantHandler);

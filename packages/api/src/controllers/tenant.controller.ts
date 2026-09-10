@@ -4,6 +4,7 @@ import type { CreateTenantBody, UpdateTenantBody } from '../schemas/tenant.schem
 import {
   archiveTenant,
   createTenant,
+  deleteTenant,
   getTenant,
   listTenants,
   reactivateTenant,
@@ -45,4 +46,10 @@ export async function archiveTenantHandler(req: Request, res: Response): Promise
 export async function reactivateTenantHandler(req: Request, res: Response): Promise<void> {
   const id = req.params.id as string;
   res.json({ tenant: await reactivateTenant(requireContext(req), id) });
+}
+
+export async function deleteTenantHandler(req: Request, res: Response): Promise<void> {
+  const id = req.params.id as string;
+  await deleteTenant(requireContext(req), id);
+  res.status(204).end();
 }

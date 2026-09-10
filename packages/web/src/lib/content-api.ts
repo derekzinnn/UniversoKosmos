@@ -99,7 +99,8 @@ export const contentApi = {
   updateTrack: (trackId: string, body: { title?: string; description?: string | null }) =>
     request<{ track: Track }>(`/tracks/${trackId}`, { method: 'PATCH', body }),
 
-  deleteTrack: (trackId: string) => request<void>(`/tracks/${trackId}`, { method: 'DELETE' }),
+  deleteTrack: (trackId: string, force = false) =>
+    request<void>(`/tracks/${trackId}${force ? '?force=true' : ''}`, { method: 'DELETE' }),
 
   /** Upload a banner image. The file is sent raw, with its own content type. */
   uploadCover: (trackId: string, file: File) =>
@@ -127,7 +128,8 @@ export const contentApi = {
   updateModule: (moduleId: string, body: { title?: string; description?: string | null }) =>
     request<{ module: Module }>(`/modules/${moduleId}`, { method: 'PATCH', body }),
 
-  deleteModule: (moduleId: string) => request<void>(`/modules/${moduleId}`, { method: 'DELETE' }),
+  deleteModule: (moduleId: string, force = false) =>
+    request<void>(`/modules/${moduleId}${force ? '?force=true' : ''}`, { method: 'DELETE' }),
 
   reorderModules: (trackId: string, orderedIds: string[]) =>
     request<{ modules: Module[] }>(`/tracks/${trackId}/modules/reorder`, {
@@ -157,7 +159,8 @@ export const contentApi = {
     },
   ) => request<{ lesson: Lesson }>(`/lessons/${lessonId}`, { method: 'PATCH', body }),
 
-  deleteLesson: (lessonId: string) => request<void>(`/lessons/${lessonId}`, { method: 'DELETE' }),
+  deleteLesson: (lessonId: string, force = false) =>
+    request<void>(`/lessons/${lessonId}${force ? '?force=true' : ''}`, { method: 'DELETE' }),
 
   reorderLessons: (moduleId: string, orderedIds: string[]) =>
     request<{ lessons: Lesson[] }>(`/modules/${moduleId}/lessons/reorder`, {
@@ -208,4 +211,6 @@ export const tenantApi = {
 
   reactivate: (id: string) =>
     request<{ tenant: Tenant }>(`/tenants/${id}/reactivate`, { method: 'POST' }),
+
+  remove: (id: string) => request<void>(`/tenants/${id}`, { method: 'DELETE' }),
 };

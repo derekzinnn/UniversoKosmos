@@ -75,6 +75,22 @@ export function messageFor(error: unknown): string {
   return FALLBACK;
 }
 
+/**
+ * Delete refusals a SUPERADMIN can override with `?force=true` — content that
+ * has client progress, or a track that is still published/assigned. When one
+ * of these comes back, the confirm dialog offers "apagar mesmo assim".
+ */
+const FORCEABLE_DELETE_CODES = new Set([
+  'LESSON_HAS_PROGRESS',
+  'MODULE_HAS_PROGRESS',
+  'TRACK_PUBLISHED_CANNOT_DELETE',
+  'TRACK_ASSIGNED_CANNOT_DELETE',
+]);
+
+export function isForceableDeleteError(error: unknown): boolean {
+  return error instanceof ApiError && FORCEABLE_DELETE_CODES.has(error.code);
+}
+
 /** Field-level messages, already in Portuguese, straight from the API schema. */
 export function fieldErrorsFrom(error: unknown): Record<string, string> {
   if (!(error instanceof ApiError) || error.code !== 'VALIDATION_FAILED') return {};
