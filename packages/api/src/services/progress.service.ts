@@ -196,17 +196,35 @@ export function recordHeartbeat(
     const trackCompleted = isTrackComplete(ordered, completedAfter);
     const trackWasComplete = isTrackComplete(ordered, completed);
 
+    // A floor on how often a raw WatchEvent is written per (viewer, lesson).
+    // The aggregate below still updates on every heartbeat, so credit and
+    // completion stay exact — but `watch_events`, the one table that grows
+    // without bound, cannot be flooded by a client posting in a loop. The gap
+    // is half the heartbeat interval, so a genuine client (reporting once per
+    // interval) still lands every event even with some jitter. Uses the
+    // `[userId, lessonId, createdAt]` index, so the lookup is cheap.
+    const minEventGapMs = Math.max(1, Math.floor(env.HEARTBEAT_INTERVAL_SECONDS / 2)) * 1000;
+    const [recentEvent] = await db.watchEvent.findMany({
+      where: { userId: context.userId, lessonId },
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+    });
+    const writeEvent =
+      !recentEvent || Date.now() - recentEvent.createdAt.getTime() >= minEventGapMs;
+
     await prisma.$transaction(async (tx) => {
       const scopedTx = createScopedDb(tx, db.scope);
 
-      await recordWatchEvent(scopedTx, {
-        userId: context.userId,
-        lessonId,
-        tenantId,
-        positionSeconds: outcome.positionSeconds,
-        ip: context.ip,
-        userAgent: context.userAgent,
-      });
+      if (writeEvent) {
+        await recordWatchEvent(scopedTx, {
+          userId: context.userId,
+          lessonId,
+          tenantId,
+          positionSeconds: outcome.positionSeconds,
+          ip: context.ip,
+          userAgent: context.userAgent,
+        });
+      }
 
       await upsertProgress(scopedTx, {
         userId: context.userId,
