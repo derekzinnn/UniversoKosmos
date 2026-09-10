@@ -1,5 +1,6 @@
 import { Check } from 'lucide-react';
 import type { CSSProperties } from 'react';
+import { Rocket } from '@/components/Rocket';
 
 /**
  * The little burst thrown when a client finishes a lesson.
@@ -31,8 +32,19 @@ export function CompletionCelebration({ active }: { active: boolean }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center motion-reduce:hidden"
+      className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center overflow-hidden motion-reduce:hidden"
     >
+      {/* A flurry of rockets crossing the screen, played once. */}
+      <div className="uk-streak-a absolute bottom-0 left-0">
+        <Rocket />
+      </div>
+      <div className="uk-streak-b absolute right-0 bottom-0">
+        <Rocket />
+      </div>
+      <div className="uk-streak-c absolute bottom-0" style={{ left: 'calc(50% - 17px)' }}>
+        <Rocket />
+      </div>
+
       <div className="relative">
         <span className="kosmos-burst-ring" />
 

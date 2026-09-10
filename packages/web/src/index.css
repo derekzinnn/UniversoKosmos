@@ -227,37 +227,88 @@
 }
 
 /*
- * A single rocket drifting across the login background, corner to corner. Pure
- * atmosphere: it crosses in a few seconds, then waits off-screen before the
- * next pass. `motion-reduce` hides it entirely.
+ * Rockets crossing a screen, in sequence: one climbing left-to-right (a), one
+ * right-to-left (b), one straight up (c). Each keyframe spans the whole cycle
+ * and only moves during its own slice — so the three cross one after another
+ * with a short gap between them, no drift, on one clock. Used two ways: the
+ * login background loops them (`uk-fly-*`), and a finished lesson plays them
+ * once as a flurry (`uk-streak-*`). `motion-reduce` hides them.
  */
-@keyframes uk-fly {
+@keyframes uk-fly-a {
   0% {
-    transform: translate(-12vw, 12vh) rotate(45deg);
+    transform: translate(-14vw, 14vh) rotate(45deg);
     opacity: 0;
   }
-  6% {
-    opacity: 0.8;
+  2%,
+  28% {
+    opacity: 0.85;
   }
-  38% {
-    opacity: 0.8;
-  }
-  44% {
-    transform: translate(52vw, -112vh) rotate(45deg);
-    opacity: 0;
-  }
+  30%,
   100% {
-    transform: translate(52vw, -112vh) rotate(45deg);
+    transform: translate(58vw, -120vh) rotate(45deg);
+    opacity: 0;
+  }
+}
+@keyframes uk-fly-b {
+  0%,
+  33% {
+    transform: translate(14vw, 14vh) rotate(-45deg);
+    opacity: 0;
+  }
+  35%,
+  61% {
+    opacity: 0.85;
+  }
+  63%,
+  100% {
+    transform: translate(-58vw, -120vh) rotate(-45deg);
+    opacity: 0;
+  }
+}
+@keyframes uk-fly-c {
+  0%,
+  66% {
+    transform: translate(0, 14vh) rotate(0deg);
+    opacity: 0;
+  }
+  68%,
+  94% {
+    opacity: 0.85;
+  }
+  96%,
+  100% {
+    transform: translate(0, -120vh) rotate(0deg);
     opacity: 0;
   }
 }
 
 @layer components {
-  .uk-fly {
-    animation: uk-fly 6s ease-in-out infinite;
+  .uk-fly-a {
+    animation: uk-fly-a 6s linear infinite;
+  }
+  .uk-fly-b {
+    animation: uk-fly-b 6s linear infinite;
+  }
+  .uk-fly-c {
+    animation: uk-fly-c 6s linear infinite;
+  }
+  /* Same paths, played once as a lesson-completion flurry. */
+  .uk-streak-a {
+    animation: uk-fly-a 2.4s linear 1 both;
+  }
+  .uk-streak-b {
+    animation: uk-fly-b 2.4s linear 1 both;
+  }
+  .uk-streak-c {
+    animation: uk-fly-c 2.4s linear 1 both;
   }
   @media (prefers-reduced-motion: reduce) {
-    .uk-fly {
+    .uk-fly-a,
+    .uk-fly-b,
+    .uk-fly-c,
+    .uk-streak-a,
+    .uk-streak-b,
+    .uk-streak-c {
       animation: none;
       opacity: 0;
     }
