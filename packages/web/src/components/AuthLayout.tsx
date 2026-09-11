@@ -1,46 +1,6 @@
-import type { CSSProperties } from 'react';
 import { Logo } from '@/components/Logo';
 import { RocketFlyby } from '@/components/RocketFlyby';
 import { ThemeToggle } from '@/components/ThemeToggle';
-
-/**
- * A scatter of stars for the cosmic panel — fixed positions (from index maths,
- * not random, so it never reflows), most of them slowly twinkling. Decoration
- * only; the twinkle is disabled under `prefers-reduced-motion` via index.css.
- */
-const STARS = Array.from({ length: 70 }, (_, i) => ({
-  top: (i * 47) % 100,
-  left: (i * 71) % 100,
-  size: i % 7 === 0 ? 2.5 : i % 3 === 0 ? 1.8 : 1,
-  dim: 0.2 + ((i * 13) % 60) / 100,
-  delaySeconds: ((i * 53) % 40) / 10,
-  durationSeconds: 2.4 + ((i * 29) % 26) / 10,
-}));
-
-function Starfield() {
-  return (
-    <div className="pointer-events-none absolute inset-0" aria-hidden>
-      {STARS.map((star, i) => (
-        <span
-          key={i}
-          className="uk-twinkle absolute rounded-full bg-white"
-          style={
-            {
-              top: `${String(star.top)}%`,
-              left: `${String(star.left)}%`,
-              width: `${String(star.size)}px`,
-              height: `${String(star.size)}px`,
-              opacity: star.dim,
-              '--twinkle-min': String(star.dim),
-              animationDelay: `${String(star.delaySeconds)}s`,
-              animationDuration: `${String(star.durationSeconds)}s`,
-            } as CSSProperties
-          }
-        />
-      ))}
-    </div>
-  );
-}
 
 interface AuthLayoutProps {
   title: string;
@@ -66,10 +26,9 @@ interface AuthLayoutProps {
 export function AuthLayout({ title, description, children, footer }: AuthLayoutProps) {
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
-      {/* ── Brand, desktop only: a little corner of the universe ──────── */}
-      <aside className="auth-cosmos relative hidden overflow-hidden text-white lg:flex lg:w-[44%] lg:max-w-2xl lg:flex-col lg:justify-between lg:p-12">
-        {/* Stars behind, rockets crossing in front of them. */}
-        <Starfield />
+      {/* ── Brand, desktop only ──────────────────────────────────────── */}
+      <aside className="auth-backdrop relative hidden overflow-hidden border-r border-border lg:flex lg:w-[44%] lg:max-w-2xl lg:flex-col lg:justify-between lg:p-12">
+        {/* A rocket drifts across the background, behind everything. */}
         <RocketFlyby />
 
         <div className="relative">
@@ -80,11 +39,13 @@ export function AuthLayout({ title, description, children, footer }: AuthLayoutP
           <h2 className="font-display text-[1.75rem] leading-tight font-bold tracking-tight text-balance">
             Seu onboarding com a Kosmos, do começo ao fim.
           </h2>
-          <p className="max-w-sm text-sm leading-relaxed text-white/60">
+          <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
             Suas trilhas, suas aulas e seu progresso em um só lugar. Avance no seu ritmo — a gente
             acompanha junto.
           </p>
-          <p className="pt-2 text-xs tracking-wide text-white/40">Kosmos Inteligência Digital</p>
+          <p className="pt-2 text-xs tracking-wide text-muted-foreground/70">
+            Kosmos Inteligência Digital
+          </p>
         </div>
       </aside>
 
@@ -113,4 +74,3 @@ export function AuthLayout({ title, description, children, footer }: AuthLayoutP
     </div>
   );
 }
-
