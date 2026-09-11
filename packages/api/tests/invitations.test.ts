@@ -106,6 +106,33 @@ describe('invitations', () => {
       expect(response.body.error.code).toBe('USER_ALREADY_EXISTS');
     });
 
+    it('refuses a placeholder or disposable domain', async () => {
+      const response = await inviteAs(ownerToken, {
+        email: 'alguem@teste.com',
+        role: 'CLIENT_MEMBER',
+      });
+
+      expect(response.status).toBe(422);
+      expect(response.body.error.code).toBe('VALIDATION_FAILED');
+      expect(response.body.error.details).toContainEqual(
+        expect.objectContaining({ field: 'email' }),
+      );
+      expect(emails.sent).toHaveLength(0);
+    });
+
+    it('refuses an obvious provider typo and suggests the fix', async () => {
+      const response = await inviteAs(ownerToken, {
+        email: 'colega@gmial.com',
+        role: 'CLIENT_MEMBER',
+      });
+
+      expect(response.status).toBe(422);
+      const emailIssue = response.body.error.details.find(
+        (item: { field: string }) => item.field === 'email',
+      );
+      expect(emailIssue?.message).toContain('@gmail.com');
+    });
+
     it('supersedes an earlier pending invitation instead of leaving two live links', async () => {
       await inviteAs(ownerToken, { email: 'colega@padaria.com.br', role: 'CLIENT_MEMBER' });
       const first = lastInviteToken();
@@ -121,7 +148,7 @@ describe('invitations', () => {
 
     it('refuses an unknown tenant', async () => {
       const response = await inviteAs(superadminToken, {
-        email: 'alguem@teste.com.br',
+        email: 'alguem@empresa.com.br',
         role: 'CLIENT_MEMBER',
         tenantId: '01a03034-8df7-7479-8e43-2a0eb76d217a',
       });
@@ -132,7 +159,7 @@ describe('invitations', () => {
     it('requires authentication', async () => {
       await api()
         .post('/invitations')
-        .send({ email: 'alguem@teste.com.br', role: 'CLIENT_MEMBER' })
+        .send({ email: 'alguem@empresa.com.br', role: 'CLIENT_MEMBER' })
         .expect(401);
     });
 

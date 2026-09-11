@@ -60,7 +60,7 @@ describe('tenant isolation', () => {
         .post('/invitations')
         .set('Authorization', bearer(superadminToken))
         .send({
-          email: 'convidado-b@teste.com.br',
+          email: 'convidado-b@empresa.com.br',
           role: 'CLIENT_MEMBER',
           tenantId: tenantB.tenant.id,
         })
@@ -81,7 +81,7 @@ describe('tenant isolation', () => {
         .post('/invitations')
         .set('Authorization', bearer(ownerAToken))
         .send({
-          email: 'infiltrado@teste.com.br',
+          email: 'infiltrado@empresa.com.br',
           role: 'CLIENT_MEMBER',
           tenantId: tenantB.tenant.id,
         })
@@ -95,7 +95,7 @@ describe('tenant isolation', () => {
       const response = await api()
         .post('/invitations')
         .set('Authorization', bearer(ownerAToken))
-        .send({ email: 'novo-dono@teste.com.br', role: 'CLIENT_OWNER' });
+        .send({ email: 'novo-dono@empresa.com.br', role: 'CLIENT_OWNER' });
 
       expect(response.status).toBe(403);
       expect(response.body.error.code).toBe('ROLE_NOT_INVITABLE');
@@ -105,7 +105,7 @@ describe('tenant isolation', () => {
       const response = await api()
         .post('/invitations')
         .set('Authorization', bearer(ownerAToken))
-        .send({ email: 'falso-admin@teste.com.br', role: 'SUPERADMIN' });
+        .send({ email: 'falso-admin@empresa.com.br', role: 'SUPERADMIN' });
 
       expect(response.status).toBe(403);
     });
@@ -116,7 +116,7 @@ describe('tenant isolation', () => {
       const response = await api()
         .post('/invitations')
         .set('Authorization', bearer(memberToken))
-        .send({ email: 'qualquer@teste.com.br', role: 'CLIENT_MEMBER' });
+        .send({ email: 'qualquer@empresa.com.br', role: 'CLIENT_MEMBER' });
 
       expect(response.status).toBe(403);
       expect(response.body.error.code).toBe('INSUFFICIENT_ROLE');
@@ -153,7 +153,7 @@ describe('tenant isolation', () => {
           db.raw.user.create({
             data: {
               tenantId: tenantB.tenant.id,
-              email: 'plantado@teste.com.br',
+              email: 'plantado@empresa.com.br',
               passwordHash: 'irrelevante',
               name: 'Plantado',
               role: 'CLIENT_MEMBER',
@@ -212,7 +212,7 @@ describe('tenant isolation', () => {
       await api()
         .post('/invitations')
         .set('Authorization', bearer(token))
-        .send({ email: 'novo@teste.com.br', role: 'CLIENT_MEMBER', tenantId: tenantB.tenant.id })
+        .send({ email: 'novo@empresa.com.br', role: 'CLIENT_MEMBER', tenantId: tenantB.tenant.id })
         .expect(201);
 
       const actions = await readAuditActions();
@@ -242,7 +242,7 @@ describe('tenant isolation', () => {
       await api()
         .post('/invitations')
         .set('Authorization', bearer(token))
-        .send({ email: 'um@teste.com.br', role: 'CLIENT_MEMBER', tenantId: tenantB.tenant.id })
+        .send({ email: 'um@empresa.com.br', role: 'CLIENT_MEMBER', tenantId: tenantB.tenant.id })
         .expect(201);
 
       const overrides = await rawQuery(
