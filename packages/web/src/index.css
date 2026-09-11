@@ -179,20 +179,6 @@
       radial-gradient(40rem 30rem at 110% 10%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 65%);
   }
 
-  /*
-   * The login's left panel as a piece of deep space: a near-black blue-violet
-   * ground with two faint nebula glows. The Starfield and the rockets sit on
-   * top of it. Always dark, in either theme — it is scenery, not a surface that
-   * follows the palette.
-   */
-  .auth-cosmos {
-    background-color: #05070f;
-    background-image:
-      radial-gradient(55rem 40rem at 15% -5%, color-mix(in srgb, #0140bf 45%, transparent), transparent 60%),
-      radial-gradient(45rem 35rem at 110% 20%, color-mix(in srgb, #6d3be0 30%, transparent), transparent 62%),
-      radial-gradient(60rem 50rem at 60% 115%, color-mix(in srgb, #0140bf 22%, transparent), transparent 65%),
-      linear-gradient(160deg, #070a16 0%, #05070f 55%, #04050b 100%);
-  }
 }
 
 /*
@@ -317,16 +303,6 @@
   }
 }
 
-/* Stars breathing on the login's cosmic panel. */
-@keyframes uk-twinkle {
-  from {
-    opacity: var(--twinkle-min, 0.3);
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 @layer components {
   .uk-fly-a {
     animation: uk-fly-a 6s linear infinite;
@@ -337,23 +313,12 @@
   .uk-fly-c {
     animation: uk-fly-c 6s linear infinite;
   }
-  .uk-twinkle {
-    animation-name: uk-twinkle;
-    animation-iteration-count: infinite;
-    animation-direction: alternate;
-    animation-timing-function: ease-in-out;
-    will-change: opacity;
-  }
   @media (prefers-reduced-motion: reduce) {
     .uk-fly-a,
     .uk-fly-b,
     .uk-fly-c {
       animation: none;
       opacity: 0;
-    }
-    /* Stars stay, just stop breathing. */
-    .uk-twinkle {
-      animation: none;
     }
   }
 
