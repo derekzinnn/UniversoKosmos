@@ -196,7 +196,7 @@ Added in Phase 1: `TRACK_CREATED`, `TRACK_UPDATED`, `TRACK_DELETED`,
 `LESSON_CREATED`, `LESSON_UPDATED`, `LESSON_DELETED`, `LESSONS_REORDERED`,
 `RESOURCE_CREATED`, `RESOURCE_DELETED`.
 
-Added in Phase 2: `LESSON_COMPLETED`, `TRACK_COMPLETED`. Only milestones. A
+Added in Phase 2: `LESSON_COMPLETED`, `MODULE_COMPLETED`, `TRACK_COMPLETED`. Only milestones. A
 heartbeat lands every few seconds per viewer per lesson, and auditing those
 would bury every other row within a week — the raw telemetry lives in
 `watch_events`, the running total in `lesson_progress`, and the ledger keeps
@@ -608,12 +608,16 @@ development. The provider is a thin `EmailProvider` over the Resend HTTP API; a
 failed send throws so it never fails silently.
 
 **`TRACK_COMPLETION_NOTIFY_EMAIL`** is the internal address alerted when a
-client finishes a whole track (default `kosmosinteligenciadigital@gmail.com`).
-The alert fires on the completion transition in both `progress.service.ts`
-paths — the explicit "concluir" and the automatic heartbeat — after the commit.
-Its scoped name lookups are awaited (the tenant guard needs the scope still
-active), but the send itself runs in the background: a client's own completion
-must never wait on it or be failed by it.
+client finishes a **module** (default `kosmosinteligenciadigital@gmail.com`).
+The name is kept for infra continuity, but the notice is now module-level: the
+team sees progress as each module closes, not only at the finish line. The
+client's own **congratulations** still fires only on whole-**track** completion.
+Both triggers are handled by `notifyCompletions(…)` in both `progress.service.ts`
+paths — the explicit "concluir" and the automatic heartbeat — after the commit,
+each on its own transition (module-just-completed / track-just-completed). Its
+scoped name lookups are awaited (the tenant guard needs the scope still active),
+but the sends run in the background: a client's own completion must never wait
+on them or be failed by them.
 
 **Not yet needed, but coming:** Redis for shared rate limiting once the API runs
 more than one instance.

@@ -122,3 +122,19 @@ export function isTrackComplete(
   if (required.length === 0) return false;
   return required.every((lesson) => completedLessonIds.has(lesson.id));
 }
+
+/**
+ * A single module counts as finished when every *required* lesson inside it is
+ * finished — the trilha rule, scoped to one module. Optional lessons never
+ * block, and a module with no required lessons never "completes" (there is
+ * nothing that must be done), exactly as an all-optional trilha never does.
+ */
+export function isModuleComplete(
+  ordered: readonly OrderedLesson[],
+  moduleId: string,
+  completedLessonIds: ReadonlySet<string>,
+): boolean {
+  const required = ordered.filter((lesson) => lesson.moduleId === moduleId && lesson.isRequired);
+  if (required.length === 0) return false;
+  return required.every((lesson) => completedLessonIds.has(lesson.id));
+}
