@@ -90,6 +90,9 @@ function renderLesson(lessonId = 'lesson-1') {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Theater mode is remembered in localStorage; clear it so one test's choice
+  // does not leak into the next (which would hide the outline unexpectedly).
+  localStorage.clear();
 
   // The heartbeat loop flushes a final beat on unmount; give the mock a
   // resolved promise so that `.catch` has something to attach to.
@@ -260,5 +263,36 @@ describe('LessonPage', () => {
     // Completes the current lesson, reporting the position it had reached.
     expect(complete).toHaveBeenCalledWith('lesson-2', 560);
     expect(await screen.findByText(/Aula concluída/)).toBeInTheDocument();
+  });
+
+  it('toggles theater mode, hiding the outline and remembering the choice', async () => {
+    const user = userEvent.setup();
+    renderLesson('lesson-2');
+    await screen.findByRole('heading', { name: 'Como funciona' });
+
+    // The outline is there by default.
+    expect(screen.getByRole('navigation', { name: 'Aulas da trilha' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Modo teatro' }));
+
+    // In theater the outline is gone and the toggle offers the way back; the
+    // player itself stays on screen.
+    expect(screen.queryByRole('navigation', { name: 'Aulas da trilha' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sair do modo teatro' })).toBeInTheDocument();
+    expect(localStorage.getItem('kosmos-theater')).toBe('1');
+
+    await user.click(screen.getByRole('button', { name: 'Sair do modo teatro' }));
+    expect(screen.getByRole('navigation', { name: 'Aulas da trilha' })).toBeInTheDocument();
+    expect(localStorage.getItem('kosmos-theater')).toBe('0');
+  });
+
+  it('opens straight into theater mode when the viewer chose it before', async () => {
+    localStorage.setItem('kosmos-theater', '1');
+
+    renderLesson('lesson-2');
+    await screen.findByRole('heading', { name: 'Como funciona' });
+
+    expect(screen.queryByRole('navigation', { name: 'Aulas da trilha' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sair do modo teatro' })).toBeInTheDocument();
   });
 });

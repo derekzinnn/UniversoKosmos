@@ -1,5 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, ChevronLeft, FileText, Link2, Lock, PlayCircle } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronLeft,
+  Expand,
+  FileText,
+  Link2,
+  Lock,
+  PlayCircle,
+  Shrink,
+} from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CompletionCelebration } from '@/components/CompletionCelebration';
@@ -61,6 +70,30 @@ export function LessonPage() {
   const cheer = useCallback(() => {
     setCelebrate(true);
     setTimeout(() => setCelebrate(false), 3800);
+  }, []);
+
+  // Theater mode: reclaim the outline's column so the player runs wider,
+  // without leaving the page for the browser's own fullscreen (which the Panda
+  // player still offers separately). Remembered per viewer — someone who likes
+  // the big player wants it on the next lesson too, and it is a harmless
+  // convenience, so localStorage rather than the server.
+  const [theater, setTheater] = useState(() => {
+    try {
+      return localStorage.getItem('kosmos-theater') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleTheater = useCallback(() => {
+    setTheater((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('kosmos-theater', next ? '1' : '0');
+      } catch {
+        /* Site data blocked — the mode still works for this session. */
+      }
+      return next;
+    });
   }, []);
 
   const tracks = useQuery({ queryKey: ['my-tracks'], queryFn: contentApi.myTracks });
@@ -183,9 +216,26 @@ export function LessonPage() {
             Concluída
           </Badge>
         ) : null}
+
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-auto"
+          onClick={toggleTheater}
+          aria-pressed={theater}
+        >
+          {theater ? (
+            <Shrink className="size-4" aria-hidden />
+          ) : (
+            <Expand className="size-4" aria-hidden />
+          )}
+          {theater ? 'Sair do modo teatro' : 'Modo teatro'}
+        </Button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
+      <div
+        className={theater ? 'mx-auto max-w-5xl' : 'grid gap-6 lg:grid-cols-[1fr_20rem]'}
+      >
         <div className="space-y-5">
           {playback.isPending ? (
             <div className="aspect-video w-full animate-pulse rounded-xl bg-muted" />
@@ -289,7 +339,9 @@ export function LessonPage() {
           ) : null}
         </div>
 
-        <TrackOutline track={track} currentLessonId={lessonId} stateByLesson={stateByLesson} />
+        {theater ? null : (
+          <TrackOutline track={track} currentLessonId={lessonId} stateByLesson={stateByLesson} />
+        )}
       </div>
     </div>
   );
