@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   Expand,
   FileText,
@@ -9,7 +10,7 @@ import {
   PlayCircle,
   Shrink,
 } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CompletionCelebration } from '@/components/CompletionCelebration';
 import { LessonPlayer } from '@/components/LessonPlayer';
@@ -346,6 +347,13 @@ export function LessonPage() {
   );
 }
 
+/**
+ * How many lessons past the current one the outline shows before it stops and
+ * offers "carregar mais". Six on screen at once (the current lesson plus five)
+ * keeps the sidebar from running taller than the video on a long trilha.
+ */
+const VISIBLE_AHEAD = 5;
+
 function TrackOutline({
   track,
   currentLessonId,
@@ -355,18 +363,58 @@ function TrackOutline({
   currentLessonId: string;
   stateByLesson: Map<string, { locked: boolean; completed: boolean }>;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
+  // A flat, in-order view of every lesson: the window is measured across the
+  // whole trilha, not per module, so it spans module boundaries cleanly.
+  const flat = useMemo(() => {
+    const ids: string[] = [];
+    for (const module of track.modules ?? []) {
+      for (const lesson of module.lessons) ids.push(lesson.id);
+    }
+    return ids;
+  }, [track]);
+
+  const currentIndex = flat.indexOf(currentLessonId);
+
+  // Moving to another lesson re-centres the window, so a list left expanded on
+  // the previous lesson collapses again around the new one.
+  useEffect(() => {
+    setExpanded(false);
+  }, [currentLessonId]);
+
+  // Collapsed: the current lesson and the next few. Expanded — or if the current
+  // lesson somehow is not in the list — everything (null means "no window").
+  const visibleIds = useMemo(() => {
+    if (expanded || currentIndex < 0) return null;
+    return new Set(flat.slice(currentIndex, currentIndex + VISIBLE_AHEAD + 1));
+  }, [expanded, currentIndex, flat]);
+
+  const hiddenCount = visibleIds ? flat.length - visibleIds.size : 0;
+
+  // Keep only modules that still have a visible lesson, so a fully-hidden
+  // module does not leave a bare heading behind.
+  const modules = (track.modules ?? [])
+    .map((module) => ({
+      module,
+      lessons: visibleIds
+        ? module.lessons.filter((lesson) => visibleIds.has(lesson.id))
+        : module.lessons,
+    }))
+    .filter((entry) => entry.lessons.length > 0);
+
   return (
     <Card className="h-fit p-4">
       <h2 className="mb-3 px-2 text-sm font-semibold">Conteúdo da trilha</h2>
       <nav aria-label="Aulas da trilha">
         <ol className="space-y-4">
-          {(track.modules ?? []).map((module) => (
+          {modules.map(({ module, lessons }) => (
             <li key={module.id}>
               <p className="px-2 pb-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 {module.title}
               </p>
               <ul className="space-y-0.5">
-                {module.lessons.map((lesson) => (
+                {lessons.map((lesson) => (
                   <OutlineLesson
                     key={lesson.id}
                     lesson={lesson}
@@ -379,6 +427,13 @@ function TrackOutline({
           ))}
         </ol>
       </nav>
+
+      {hiddenCount > 0 ? (
+        <Button variant="ghost" size="sm" className="mt-3 w-full" onClick={() => setExpanded(true)}>
+          <ChevronDown className="size-4" aria-hidden />
+          Carregar mais {hiddenCount} {hiddenCount === 1 ? 'aula' : 'aulas'}
+        </Button>
+      ) : null}
     </Card>
   );
 }
