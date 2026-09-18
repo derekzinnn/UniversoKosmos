@@ -61,6 +61,7 @@ const ACTION_LABELS: Readonly<Record<string, AuditActionLabel>> = {
   RESOURCE_DELETED: { label: 'Material removido', tone: 'alert' },
 
   LESSON_COMPLETED: { label: 'Aula concluída', tone: 'milestone' },
+  MODULE_COMPLETED: { label: 'Módulo concluído', tone: 'milestone' },
   TRACK_COMPLETED: { label: 'Trilha concluída', tone: 'milestone' },
 
   REFRESH_TOKEN_REUSE_DETECTED: { label: 'Token reutilizado (possível roubo)', tone: 'alert' },

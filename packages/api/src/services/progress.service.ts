@@ -16,10 +16,16 @@ import { AuditAction, AuditEntity } from './audit.actions.js';
 import { audit } from './audit.service.js';
 import { emailProvider } from './email/index.js';
 import type { EmailMessage } from './email/email-provider.js';
-import { trackCompletedCongrats, trackCompletedNotification } from './email/templates.js';
+import { moduleCompletedNotification, trackCompletedCongrats } from './email/templates.js';
 import { applyHeartbeat } from './progress.rules.js';
 import type { HeartbeatSettings } from './progress.rules.js';
-import { isTrackComplete, lessonsInOrder, nextLessonId, unlockedLessonIds } from './unlock.js';
+import {
+  isModuleComplete,
+  isTrackComplete,
+  lessonsInOrder,
+  nextLessonId,
+  unlockedLessonIds,
+} from './unlock.js';
 import type { UnlockModule } from './unlock.js';
 
 /**
@@ -194,7 +200,12 @@ export function recordHeartbeat(
       outcome.completedAt === null ? completed : new Set([...completed, lessonId]);
 
     const trackCompleted = isTrackComplete(ordered, completedAfter);
-    const trackWasComplete = isTrackComplete(ordered, completed);
+    const moduleJustCompleted =
+      isModuleComplete(ordered, lesson.moduleId, completedAfter) &&
+      !isModuleComplete(ordered, lesson.moduleId, completed);
+    const trackJustCompleted = trackCompleted && !isTrackComplete(ordered, completed);
+    const moduleTitle =
+      assignment.track.modules.find((module) => module.id === lesson.moduleId)?.title ?? '';
 
     // A floor on how often a raw WatchEvent is written per (viewer, lesson).
     // The aggregate below still updates on every heartbeat, so credit and
@@ -247,9 +258,22 @@ export function recordHeartbeat(
         });
       }
 
-      // Only on the transition. Without the `trackWasComplete` guard, every
-      // later heartbeat on an already-finished trilha would write another row.
-      if (trackCompleted && !trackWasComplete) {
+      // Only on the transition — the `justCompleted` guards above and these
+      // `!wasComplete` checks mean a later heartbeat on an already-finished
+      // module or trilha writes nothing more.
+      if (moduleJustCompleted) {
+        await audit(tx, {
+          action: AuditAction.MODULE_COMPLETED,
+          actor: { id: context.userId, email: context.email, role: context.role },
+          tenantId,
+          entityType: AuditEntity.MODULE,
+          entityId: lesson.moduleId,
+          after: { moduleTitle, trackTitle: assignment.track.title },
+          request: metadataOf(context),
+        });
+      }
+
+      if (trackJustCompleted) {
         await audit(tx, {
           action: AuditAction.TRACK_COMPLETED,
           actor: { id: context.userId, email: context.email, role: context.role },
@@ -262,12 +286,14 @@ export function recordHeartbeat(
       }
     });
 
-    // After the commit, best-effort: tell Kosmos a client just finished a
-    // whole track. Awaited only for its scoped name lookups; the send itself
-    // runs in the background inside the helper.
-    if (trackCompleted && !trackWasComplete) {
-      await notifyTrackCompleted(db, context, tenantId, assignment.trackId, assignment.track.title);
-    }
+    // After the commit, best-effort. Awaited only for its scoped name lookups;
+    // the sends themselves run in the background inside the helper.
+    await notifyCompletions(db, context, tenantId, {
+      trackId: assignment.trackId,
+      trackTitle: assignment.track.title,
+      moduleTitle: moduleJustCompleted ? moduleTitle : null,
+      trackJustCompleted,
+    });
 
     return {
       lessonId,
@@ -358,7 +384,12 @@ export function markLessonComplete(
 
     const completedAfter = new Set([...completed, lessonId]);
     const trackCompleted = isTrackComplete(ordered, completedAfter);
-    const trackWasComplete = isTrackComplete(ordered, completed);
+    const trackJustCompleted = trackCompleted && !isTrackComplete(ordered, completed);
+    const moduleJustCompleted =
+      isModuleComplete(ordered, lesson.moduleId, completedAfter) &&
+      !isModuleComplete(ordered, lesson.moduleId, completed);
+    const moduleTitle =
+      assignment.track.modules.find((module) => module.id === lesson.moduleId)?.title ?? '';
 
     await prisma.$transaction(async (tx) => {
       const scopedTx = createScopedDb(tx, db.scope);
@@ -384,7 +415,19 @@ export function markLessonComplete(
         });
       }
 
-      if (trackCompleted && !trackWasComplete) {
+      if (moduleJustCompleted) {
+        await audit(tx, {
+          action: AuditAction.MODULE_COMPLETED,
+          actor: { id: context.userId, email: context.email, role: context.role },
+          tenantId,
+          entityType: AuditEntity.MODULE,
+          entityId: lesson.moduleId,
+          after: { moduleTitle, trackTitle: assignment.track.title },
+          request: metadataOf(context),
+        });
+      }
+
+      if (trackJustCompleted) {
         await audit(tx, {
           action: AuditAction.TRACK_COMPLETED,
           actor: { id: context.userId, email: context.email, role: context.role },
@@ -397,12 +440,14 @@ export function markLessonComplete(
       }
     });
 
-    // The explicit "concluir" that closes the last lesson: alert Kosmos, after
-    // the commit. Awaited only for its scoped name lookups; the send runs in
-    // the background inside the helper.
-    if (trackCompleted && !trackWasComplete) {
-      await notifyTrackCompleted(db, context, tenantId, assignment.trackId, assignment.track.title);
-    }
+    // After the commit, best-effort. Awaited only for its scoped name lookups;
+    // the sends run in the background inside the helper.
+    await notifyCompletions(db, context, tenantId, {
+      trackId: assignment.trackId,
+      trackTitle: assignment.track.title,
+      moduleTitle: moduleJustCompleted ? moduleTitle : null,
+      trackJustCompleted,
+    });
 
     return {
       lessonId,
@@ -468,23 +513,42 @@ function runAsClient<T>(context: RequestContext, fn: (db: ScopedDb) => Promise<T
   return runInTenantScope(requireClient(context), fn);
 }
 
+interface CompletionNotices {
+  readonly trackId: string;
+  readonly trackTitle: string;
+  /** Set when a module just closed: the internal Kosmos alert names it. */
+  readonly moduleTitle: string | null;
+  /** True when the whole trilha just closed: the client gets a congrats. */
+  readonly trackJustCompleted: boolean;
+}
+
 /**
- * Best-effort internal alert that a client finished a whole track.
+ * Best-effort completion e-mails, sent after the commit.
+ *
+ * Two audiences, two triggers:
+ *  - **Kosmos**, per *module*: an internal alert each time a client finishes a
+ *    module, so the team sees progress as it happens rather than only at the
+ *    end. (`TRACK_COMPLETION_NOTIFY_EMAIL` keeps its name for infra continuity,
+ *    but it now receives a module-level notice.)
+ *  - **the client**, per *track*: a warm congratulations only when the whole
+ *    trilha is done.
  *
  * The names it needs are read here, awaited, because those reads are
  * tenant-scoped and the guard requires the scope to still be active — so the
- * caller must `await` this before its own callback returns. The email *send*,
- * which touches no database, is then fired without awaiting: it must never add
+ * caller must `await` this before its own callback returns. The e-mail *sends*,
+ * which touch no database, are then fired without awaiting: they must never add
  * latency to the client's completion nor fail it, so a delivery problem is
- * logged, never raised (the same spirit as `auditDetached`).
+ * logged, never raised (the same spirit as `auditDetached`). Does nothing when
+ * neither trigger fired.
  */
-async function notifyTrackCompleted(
+async function notifyCompletions(
   db: ScopedDb,
   context: RequestContext,
   tenantId: string,
-  trackId: string,
-  trackTitle: string,
+  notices: CompletionNotices,
 ): Promise<void> {
+  if (notices.moduleTitle === null && !notices.trackJustCompleted) return;
+
   try {
     const [tenant, user] = await Promise.all([
       db.tenant.findFirst({ where: { id: tenantId } }),
@@ -496,34 +560,44 @@ async function notifyTrackCompleted(
     const clientEmail = context.email ?? user?.email ?? '';
 
     // The sends need no scope, so let them run in the background — the client's
-    // response waits on neither, and a failure only logs. Two audiences: the
-    // internal alert to Kosmos, and the congratulations to the client.
+    // response waits on neither, and a failure only logs.
     const fire = (label: string, message: EmailMessage) =>
       void emailProvider()
         .send(message)
         .catch((error: unknown) => {
-          logger.error({ error, tenantId, trackId }, `Failed to send ${label}`);
+          logger.error({ error, tenantId, trackId: notices.trackId }, `Failed to send ${label}`);
         });
 
-    fire(
-      'track-completion notification',
-      trackCompletedNotification({
-        to: env.TRACK_COMPLETION_NOTIFY_EMAIL,
-        clientName,
-        clientEmail,
-        tenantName: tenant?.name ?? 'Cliente',
-        trackTitle,
-        drilldownUrl: `${base}/admin/clients/${tenantId}`,
-      }),
-    );
+    if (notices.moduleTitle !== null) {
+      fire(
+        'module-completion notification',
+        moduleCompletedNotification({
+          to: env.TRACK_COMPLETION_NOTIFY_EMAIL,
+          clientName,
+          clientEmail,
+          tenantName: tenant?.name ?? 'Cliente',
+          trackTitle: notices.trackTitle,
+          moduleTitle: notices.moduleTitle,
+          drilldownUrl: `${base}/admin/clients/${tenantId}`,
+        }),
+      );
+    }
 
-    if (clientEmail) {
+    if (notices.trackJustCompleted && clientEmail) {
       fire(
         'track-completion congratulations',
-        trackCompletedCongrats({ to: clientEmail, clientName, trackTitle, appUrl: base }),
+        trackCompletedCongrats({
+          to: clientEmail,
+          clientName,
+          trackTitle: notices.trackTitle,
+          appUrl: base,
+        }),
       );
     }
   } catch (error) {
-    logger.error({ error, tenantId, trackId }, 'Failed to prepare track-completion notification');
+    logger.error(
+      { error, tenantId, trackId: notices.trackId },
+      'Failed to prepare completion notifications',
+    );
   }
 }

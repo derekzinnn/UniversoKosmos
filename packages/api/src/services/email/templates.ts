@@ -157,33 +157,37 @@ export function invitationEmail(input: InvitationEmailInput): EmailMessage {
   };
 }
 
-interface TrackCompletedNotificationInput {
+interface ModuleCompletedNotificationInput {
   /** Internal Kosmos recipient. */
   readonly to: string;
   readonly clientName: string;
   readonly clientEmail: string;
   readonly tenantName: string;
   readonly trackTitle: string;
+  readonly moduleTitle: string;
   /** Link into the per-client drill-down in the admin console. */
   readonly drilldownUrl: string;
 }
 
 /**
- * Internal alert: a client just finished an entire track. Sent to Kosmos, not
- * to the client — so the copy addresses the team, and the button opens that
- * client's drill-down in the admin console.
+ * Internal alert: a client just finished a module of a track. Sent to Kosmos,
+ * not to the client — so the copy addresses the team, and the button opens that
+ * client's drill-down. The client's own congratulations still waits for the
+ * whole track (`trackCompletedCongrats`); this fires per module so the team
+ * sees progress as it happens, not only at the finish line.
  */
-export function trackCompletedNotification(input: TrackCompletedNotificationInput): EmailMessage {
-  const subject = `${input.tenantName} concluiu a trilha "${input.trackTitle}"`;
+export function moduleCompletedNotification(input: ModuleCompletedNotificationInput): EmailMessage {
+  const subject = `${input.tenantName} concluiu o módulo "${input.moduleTitle}"`;
   return {
     to: input.to,
     subject,
     text: [
-      `Um cliente concluiu uma trilha no Universo Kosmos.`,
+      `Um cliente concluiu um módulo no Universo Kosmos.`,
       ``,
       `Empresa:  ${input.tenantName}`,
       `Pessoa:   ${input.clientName} (${input.clientEmail})`,
       `Trilha:   ${input.trackTitle}`,
+      `Módulo:   ${input.moduleTitle}`,
       ``,
       `Ver o progresso do cliente:`,
       input.drilldownUrl,
@@ -191,9 +195,9 @@ export function trackCompletedNotification(input: TrackCompletedNotificationInpu
       `— Universo Kosmos`,
     ].join('\n'),
     html: layout({
-      title: 'Um cliente concluiu a trilha',
+      title: 'Um cliente concluiu um módulo',
       paragraphs: [
-        `${input.clientName} (${input.clientEmail}), da empresa ${input.tenantName}, acaba de concluir a trilha "${input.trackTitle}".`,
+        `${input.clientName} (${input.clientEmail}), da empresa ${input.tenantName}, acaba de concluir o módulo "${input.moduleTitle}" da trilha "${input.trackTitle}".`,
       ],
       ctaLabel: 'Ver progresso do cliente',
       ctaUrl: input.drilldownUrl,

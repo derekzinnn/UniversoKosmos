@@ -60,6 +60,7 @@ export const AuditAction = {
    * an append-only ledger is the moment something became true.
    */
   LESSON_COMPLETED: 'LESSON_COMPLETED',
+  MODULE_COMPLETED: 'MODULE_COMPLETED',
   TRACK_COMPLETED: 'TRACK_COMPLETED',
 
   /** A revoked refresh token was presented again — the token was stolen. */

@@ -140,6 +140,49 @@ export async function createTrackWithLessons(
   });
 }
 
+/**
+ * A published track laid out as two modules, each with `lessonsPerModule`
+ * required lessons, for exercising the per-module completion transition — the
+ * moment an *earlier* module closes while the trilha as a whole is not yet
+ * done. Every lesson carries a video and a duration so completion is
+ * computable. Returns the lessons grouped by module, in order.
+ */
+export async function createTrackWithTwoModules(
+  lessonsPerModule = 2,
+  options: { durationSeconds?: number } = {},
+) {
+  return runInGlobalScope('system:test-fixture', async (db) => {
+    const track = await db.raw.track.create({
+      data: { title: 'Trilha de Dois Modulos', slug: unique('trilha'), published: true },
+    });
+
+    const modules: { id: string; lessons: Prisma.LessonModel[] }[] = [];
+    for (let moduleIndex = 0; moduleIndex < 2; moduleIndex += 1) {
+      const module = await db.raw.module.create({
+        data: { trackId: track.id, title: `Modulo ${String(moduleIndex + 1)}`, order: moduleIndex },
+      });
+
+      const lessons: Prisma.LessonModel[] = [];
+      for (let index = 0; index < lessonsPerModule; index += 1) {
+        lessons.push(
+          await db.raw.lesson.create({
+            data: {
+              moduleId: module.id,
+              title: `M${String(moduleIndex + 1)} Aula ${String(index + 1)}`,
+              order: index,
+              externalVideoId: unique('external-video'),
+              durationSeconds: options.durationSeconds ?? 100,
+            },
+          }),
+        );
+      }
+      modules.push({ id: module.id, lessons });
+    }
+
+    return { track, modules };
+  });
+}
+
 /** Mark a lesson finished directly, so a test can start from "step 2". */
 export function completeLesson(userId: string, lessonId: string, tenantId: string) {
   return runInGlobalScope('system:test-fixture', (db) =>

@@ -9,6 +9,7 @@ import {
   createSuperadmin,
   createTenantWithUsers,
   createTrackWithLessons,
+  createTrackWithTwoModules,
 } from './helpers/factories.js';
 
 /**
@@ -400,9 +401,10 @@ describe('POST /lessons/:id/complete', () => {
     expect(rows[0]!.completed_at).not.toBeNull();
   });
 
-  it('emails Kosmos when the explicit completion finishes the whole track', async () => {
+  it('emails Kosmos per module, and congratulates the client only on the whole track', async () => {
     const emails = useCapturingEmails();
-    // A single-lesson track: closing that lesson finishes the whole track.
+    // A single-lesson track is one module: closing that lesson closes both the
+    // module (→ internal alert) and the whole track (→ client congrats).
     const { tenant, owner, lessons, token } = await assignedClient(1, 50);
 
     await api()
@@ -411,19 +413,20 @@ describe('POST /lessons/:id/complete', () => {
       .send({ positionSeconds: 48 })
       .expect(200);
 
-    const notice = emails.sent.find((m) => m.subject.includes('concluiu a trilha'));
+    // The internal alert is now module-level, and goes to Kosmos.
+    const notice = emails.sent.find((m) => m.subject.includes('concluiu o módulo'));
     expect(notice).toBeDefined();
     expect(notice?.to).toBe('kosmosinteligenciadigital@gmail.com');
     expect(notice?.text).toContain(owner.email);
     expect(notice?.html).toContain('/admin/clients/' + tenant.id);
 
-    // The client also gets a congratulations, addressed to them.
+    // The client's congratulations still fires only on whole-track completion.
     const congrats = emails.sent.find((m) => m.to === owner.email && m.subject.includes('Parabéns'));
     expect(congrats).toBeDefined();
     expect(congrats?.html).toContain('Universo Kosmos');
   });
 
-  it('does not email again for a lesson completed on an already-finished track', async () => {
+  it('does not email again for a lesson completed on an already-finished module', async () => {
     const emails = useCapturingEmails();
     const { lessons, token } = await assignedClient(1, 50);
 
@@ -435,7 +438,50 @@ describe('POST /lessons/:id/complete', () => {
         .expect(200);
     }
 
-    expect(emails.sent.filter((m) => m.subject.includes('concluiu a trilha'))).toHaveLength(1);
+    expect(emails.sent.filter((m) => m.subject.includes('concluiu o módulo'))).toHaveLength(1);
+  });
+
+  it('alerts Kosmos when an earlier module closes, before the track is finished', async () => {
+    const emails = useCapturingEmails();
+    const { tenant, owner } = await createTenantWithUsers();
+    // Two modules, two lessons each. Finishing module 1 must alert Kosmos, but
+    // the client must NOT be congratulated yet — the trilha is only half done.
+    const { track, modules } = await createTrackWithTwoModules(2, { durationSeconds: 50 });
+    await assignTrackToTenant(track.id, tenant.id);
+    const token = await loginAs(owner.email);
+
+    for (const lesson of modules[0]!.lessons) {
+      await api()
+        .post(`/lessons/${lesson.id}/complete`)
+        .set('Authorization', bearer(token))
+        .send({ positionSeconds: 48 })
+        .expect(200);
+    }
+
+    const moduleNotices = emails.sent.filter((m) => m.subject.includes('concluiu o módulo'));
+    expect(moduleNotices).toHaveLength(1);
+    expect(moduleNotices[0]?.to).toBe('kosmosinteligenciadigital@gmail.com');
+    // No congratulations while the second module is still outstanding.
+    expect(emails.sent.filter((m) => m.subject.includes('Parabéns'))).toHaveLength(0);
+
+    // Finishing the second module closes the trilha: another module alert, and
+    // now the client's congratulations.
+    for (const lesson of modules[1]!.lessons) {
+      await api()
+        .post(`/lessons/${lesson.id}/complete`)
+        .set('Authorization', bearer(token))
+        .send({ positionSeconds: 48 })
+        .expect(200);
+    }
+
+    expect(emails.sent.filter((m) => m.subject.includes('concluiu o módulo'))).toHaveLength(2);
+    expect(
+      emails.sent.filter((m) => m.to === owner.email && m.subject.includes('Parabéns')),
+    ).toHaveLength(1);
+
+    const actions = await readAuditActions();
+    expect(actions.filter((action) => action === 'MODULE_COMPLETED')).toHaveLength(2);
+    expect(actions.filter((action) => action === 'TRACK_COMPLETED')).toHaveLength(1);
   });
 
   it('refuses to complete when the client has not reached the end', async () => {

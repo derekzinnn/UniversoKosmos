@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { UnlockModule } from './unlock.js';
-import { isTrackComplete, lessonsInOrder, nextLessonId, unlockedLessonIds } from './unlock.js';
+import {
+  isModuleComplete,
+  isTrackComplete,
+  lessonsInOrder,
+  nextLessonId,
+  unlockedLessonIds,
+} from './unlock.js';
 
 function module_(id: string, order: number, lessons: [string, number, boolean][]): UnlockModule {
   return {
@@ -138,5 +144,45 @@ describe('isTrackComplete', () => {
   it('is false for a trilha of only optional lessons', () => {
     const optionalOnly = lessonsInOrder([module_('m1', 0, [['a', 0, false]])]);
     expect(isTrackComplete(optionalOnly, new Set())).toBe(false);
+  });
+});
+
+describe('isModuleComplete', () => {
+  it('is true when every required lesson in that module is done', () => {
+    // m1 needs a and b; c belongs to m2 and does not count.
+    expect(isModuleComplete(ordered, 'm1', new Set(['a', 'b']))).toBe(true);
+  });
+
+  it('is scoped to the one module — a finished m2 does not complete m1', () => {
+    expect(isModuleComplete(ordered, 'm1', new Set(['c']))).toBe(false);
+  });
+
+  it('closes an earlier module before the whole trilha is done', () => {
+    // m1 is complete on a+b even though c (m2) is still outstanding.
+    expect(isModuleComplete(ordered, 'm1', new Set(['a', 'b']))).toBe(true);
+    expect(isTrackComplete(ordered, new Set(['a', 'b']))).toBe(false);
+  });
+
+  it('is false while anything required in the module is outstanding', () => {
+    expect(isModuleComplete(ordered, 'm1', new Set(['a']))).toBe(false);
+  });
+
+  it('ignores unfinished optional lessons in the module', () => {
+    const withOptional = lessonsInOrder([
+      module_('m1', 0, [
+        ['a', 0, true],
+        ['extra', 1, false],
+      ]),
+    ]);
+    expect(isModuleComplete(withOptional, 'm1', new Set(['a']))).toBe(true);
+  });
+
+  it('is false for a module of only optional lessons — nothing must be done', () => {
+    const optionalOnly = lessonsInOrder([module_('m1', 0, [['a', 0, false]])]);
+    expect(isModuleComplete(optionalOnly, 'm1', new Set())).toBe(false);
+  });
+
+  it('is false for a module id that is not in the trilha', () => {
+    expect(isModuleComplete(ordered, 'nope', new Set(['a', 'b', 'c']))).toBe(false);
   });
 });
