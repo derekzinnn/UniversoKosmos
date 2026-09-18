@@ -98,6 +98,30 @@ export function LessonPage() {
     });
   }, []);
 
+  // Keyboard shortcut: "T" toggles theater mode. Ignored while a field has focus
+  // (so it never eats a real keystroke) and when a modifier is held (so it never
+  // shadows a browser or OS shortcut). A cross-origin player iframe swallows its
+  // own keys, so this fires only when the page itself has focus — which is
+  // exactly when someone would reach for it.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== 't' && event.key !== 'T') return;
+      if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+      event.preventDefault();
+      toggleTheater();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [toggleTheater]);
+
   const tracks = useQuery({ queryKey: ['my-tracks'], queryFn: contentApi.myTracks });
 
   const progress = useQuery({
@@ -225,6 +249,7 @@ export function LessonPage() {
           className="ml-auto"
           onClick={toggleTheater}
           aria-pressed={theater}
+          title="Atalho: tecla T"
         >
           {theater ? (
             <Shrink className="size-4" aria-hidden />
