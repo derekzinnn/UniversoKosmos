@@ -41,7 +41,7 @@ export function createUser(options: CreateUserOptions): Promise<Prisma.UserModel
     db.raw.user.create({
       data: {
         tenantId: options.tenantId,
-        email: options.email ?? `${unique('user')}@teste.com.br`,
+        email: options.email ?? `${unique('user')}@empresa.com.br`,
         passwordHash: await hashPassword(options.password ?? TEST_PASSWORD),
         name: options.name ?? 'Usuario de Teste',
         role: options.role,

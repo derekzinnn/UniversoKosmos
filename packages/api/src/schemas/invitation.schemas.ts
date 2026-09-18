@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { emailSchema, nameSchema, passwordSchema, roleSchema } from './common.js';
+import { deliverableEmailSchema, nameSchema, passwordSchema, roleSchema } from './common.js';
 
 export const createInvitationSchema = z.object({
-  email: emailSchema,
+  email: deliverableEmailSchema,
   role: roleSchema,
   /**
    * Only meaningful for SUPERADMIN. A CLIENT_OWNER sending this is ignored:
