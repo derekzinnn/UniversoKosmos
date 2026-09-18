@@ -325,4 +325,60 @@ describe('LessonPage', () => {
     expect(screen.queryByRole('navigation', { name: 'Aulas da trilha' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sair do modo teatro' })).toBeInTheDocument();
   });
+
+  /** A single-module track with `count` lessons, for the outline window. */
+  function manyLessonTrack(count: number) {
+    return {
+      ...track,
+      modules: [
+        {
+          ...track.modules[0]!,
+          lessons: Array.from({ length: count }, (_, i) => lesson(`lesson-${i + 1}`, `Aula ${i + 1}`, i)),
+        },
+      ],
+    };
+  }
+
+  it('shows only the current lesson and the next five, revealing the rest on "carregar mais"', async () => {
+    const user = userEvent.setup();
+    myTracks.mockResolvedValue({ tracks: [manyLessonTrack(8)] });
+
+    renderLesson('lesson-1');
+    const outline = await screen.findByRole('navigation', { name: 'Aulas da trilha' });
+
+    // From lesson 1: lessons 1–6 show, 7 and 8 are held back.
+    expect(within(outline).getByText('Aula 6')).toBeInTheDocument();
+    expect(within(outline).queryByText('Aula 7')).not.toBeInTheDocument();
+    expect(within(outline).queryByText('Aula 8')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Carregar mais 2 aulas/ }));
+
+    expect(within(outline).getByText('Aula 7')).toBeInTheDocument();
+    expect(within(outline).getByText('Aula 8')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Carregar mais/ })).not.toBeInTheDocument();
+  });
+
+  it('starts the window at the current lesson, holding earlier ones back too', async () => {
+    myTracks.mockResolvedValue({ tracks: [manyLessonTrack(8)] });
+
+    renderLesson('lesson-3');
+    const outline = await screen.findByRole('navigation', { name: 'Aulas da trilha' });
+
+    // From lesson 3: lessons 3–8 show; 1 and 2 are behind "carregar mais".
+    expect(within(outline).queryByText('Aula 1')).not.toBeInTheDocument();
+    expect(within(outline).queryByText('Aula 2')).not.toBeInTheDocument();
+    expect(within(outline).getByText('Aula 3')).toBeInTheDocument();
+    expect(within(outline).getByText('Aula 8')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Carregar mais 2 aulas/ })).toBeInTheDocument();
+  });
+
+  it('does not offer "carregar mais" when the whole trilha already fits', async () => {
+    myTracks.mockResolvedValue({ tracks: [manyLessonTrack(4)] });
+
+    renderLesson('lesson-1');
+    const outline = await screen.findByRole('navigation', { name: 'Aulas da trilha' });
+
+    expect(within(outline).getByText('Aula 4')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Carregar mais/ })).not.toBeInTheDocument();
+  });
 });
