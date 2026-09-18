@@ -13,6 +13,7 @@ import {
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AddItemPopover } from '@/components/admin/AddItemPopover';
+import { LessonDescriptionModal } from '@/components/admin/LessonDescriptionModal';
 import { LessonVideoModal } from '@/components/admin/LessonVideoModal';
 import { NewLessonModal } from '@/components/admin/NewLessonModal';
 import { RenamePopover } from '@/components/admin/RenamePopover';
@@ -458,6 +459,7 @@ function LessonRow({
   onError,
 }: LessonRowProps) {
   const [pickingVideo, setPickingVideo] = useState(false);
+  const [editingDescription, setEditingDescription] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const move = useMutation({
@@ -496,6 +498,16 @@ function LessonRow({
   const rename = useMutation({
     mutationFn: (title: string) => contentApi.updateLesson(lesson.id, { title }),
     onSuccess: onChanged,
+    onError,
+  });
+
+  const saveDescription = useMutation({
+    mutationFn: (description: string | null) =>
+      contentApi.updateLesson(lesson.id, { description }),
+    onSuccess: () => {
+      onChanged();
+      setEditingDescription(false);
+    },
     onError,
   });
 
@@ -560,21 +572,40 @@ function LessonRow({
         </div>
       </div>
 
-      <Button
-        variant="link"
-        size="sm"
-        className="mt-1 h-auto p-0 text-xs"
-        loading={saveVideo.isPending}
-        onClick={() => setPickingVideo(true)}
-      >
-        {lesson.hasVideo ? 'Trocar vídeo' : 'Escolher vídeo'}
-      </Button>
+      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto p-0 text-xs"
+          loading={saveVideo.isPending}
+          onClick={() => setPickingVideo(true)}
+        >
+          {lesson.hasVideo ? 'Trocar vídeo' : 'Escolher vídeo'}
+        </Button>
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto p-0 text-xs"
+          onClick={() => setEditingDescription(true)}
+        >
+          {lesson.description ? 'Editar descrição' : 'Adicionar descrição'}
+        </Button>
+      </div>
 
       <LessonVideoModal
         open={pickingVideo}
         onOpenChange={setPickingVideo}
         currentVideoId={lesson.externalVideoId ?? null}
         onPick={(video) => saveVideo.mutate(video)}
+      />
+
+      <LessonDescriptionModal
+        open={editingDescription}
+        onOpenChange={setEditingDescription}
+        lessonTitle={lesson.title}
+        currentDescription={lesson.description}
+        onSave={(description) => saveDescription.mutate(description)}
+        pending={saveDescription.isPending}
       />
 
       <ConfirmDialog

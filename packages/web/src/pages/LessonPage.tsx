@@ -13,6 +13,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CompletionCelebration } from '@/components/CompletionCelebration';
 import { LessonPlayer } from '@/components/LessonPlayer';
+import { MarkdownContent } from '@/components/MarkdownContent';
 import { ErrorState } from '@/components/states/ErrorState';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -267,9 +268,7 @@ export function LessonPage() {
 
           <div className="space-y-2">
             <h1 className="text-xl font-semibold tracking-tight">{lesson.title}</h1>
-            {lesson.description ? (
-              <p className="text-sm leading-relaxed text-muted-foreground">{lesson.description}</p>
-            ) : null}
+            {lesson.description ? <MarkdownContent content={lesson.description} /> : null}
           </div>
 
           {done ? (

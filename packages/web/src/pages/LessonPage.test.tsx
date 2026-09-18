@@ -233,6 +233,36 @@ describe('LessonPage', () => {
     expect(await screen.findByText('Não encontramos esta aula')).toBeInTheDocument();
   });
 
+  it('renders the lesson description below the video, with clickable links', async () => {
+    myTracks.mockResolvedValue({
+      tracks: [
+        {
+          ...track,
+          modules: [
+            {
+              ...track.modules[0]!,
+              lessons: [
+                {
+                  ...track.modules[0]!.lessons[0]!,
+                  description: 'Baixe o [material de apoio](https://kosmos.example.com/guia).',
+                },
+                track.modules[0]!.lessons[1]!,
+                track.modules[0]!.lessons[2]!,
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    renderLesson('lesson-1');
+    await screen.findByRole('heading', { name: 'Bem-vindo' });
+
+    const link = screen.getByRole('link', { name: 'material de apoio' });
+    expect(link).toHaveAttribute('href', 'https://kosmos.example.com/guia');
+    expect(link).toHaveAttribute('target', '_blank');
+  });
+
   it('offers "concluir" only once the video reaches the end, and completes on click', async () => {
     const user = userEvent.setup();
     complete.mockResolvedValue({

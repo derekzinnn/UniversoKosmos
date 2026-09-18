@@ -3,6 +3,7 @@ import { ArrowLeft, Film, PlayCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { LessonPlayer } from '@/components/LessonPlayer';
+import { MarkdownContent } from '@/components/MarkdownContent';
 import { ErrorState } from '@/components/states/ErrorState';
 import { FullPageLoader } from '@/components/states/FullPageLoader';
 import { Alert } from '@/components/ui/alert';
@@ -147,7 +148,12 @@ export function LessonPreviewPage() {
             )}
 
             {activeLesson ? (
-              <h2 className="text-lg font-semibold tracking-tight">{activeLesson.title}</h2>
+              <div className="space-y-2">
+                <h2 className="text-lg font-semibold tracking-tight">{activeLesson.title}</h2>
+                {activeLesson.description ? (
+                  <MarkdownContent content={activeLesson.description} />
+                ) : null}
+              </div>
             ) : null}
           </div>
 

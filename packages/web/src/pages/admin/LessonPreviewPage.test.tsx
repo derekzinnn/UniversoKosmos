@@ -111,4 +111,40 @@ describe('LessonPreviewPage', () => {
 
     expect(await screen.findByText('Esta aula ainda não tem vídeo')).toBeInTheDocument();
   });
+
+  it("renders the active lesson's own description below the video, with links", async () => {
+    getTrack.mockResolvedValue({
+      track: {
+        id: 'track-1',
+        slug: 'onboarding',
+        title: 'Onboarding',
+        description: null,
+        published: false,
+        createdAt: '',
+        updatedAt: '',
+        modules: [
+          {
+            id: 'm1',
+            trackId: 'track-1',
+            title: 'Introdução',
+            description: null,
+            order: 0,
+            lessons: [
+              {
+                ...lesson('l2', 'Aula com vídeo', 0, true),
+                description: 'Veja o [material](https://kosmos.example.com).',
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    renderPreview();
+    await screen.findByTitle('Aula com vídeo');
+
+    const link = await screen.findByRole('link', { name: 'material' });
+    expect(link).toHaveAttribute('href', 'https://kosmos.example.com');
+    expect(link).toHaveAttribute('target', '_blank');
+  });
 });
