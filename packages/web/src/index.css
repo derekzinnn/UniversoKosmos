@@ -179,6 +179,29 @@
       radial-gradient(40rem 30rem at 110% 10%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 65%);
   }
 
+  /*
+   * The lost astronaut on the 404 screen drifts gently — a slow hover, not a
+   * bounce. Stilled under `prefers-reduced-motion`, where a static astronaut
+   * says exactly the same thing.
+   */
+  .uk-float {
+    animation: uk-float 6s ease-in-out infinite alternate;
+    transform-origin: center;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .uk-float {
+      animation: none;
+    }
+  }
+}
+
+@keyframes uk-float {
+  from {
+    transform: translateY(-2%) rotate(-3deg);
+  }
+  to {
+    transform: translateY(2%) rotate(3deg);
+  }
 }
 
 /*
