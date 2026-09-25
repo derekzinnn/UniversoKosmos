@@ -111,15 +111,25 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">
           {greeting()}, {user ? firstNameOf(user.name) : ''}
         </h1>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {isStaff
-            ? 'Abra qualquer trilha para pré-visualizar as aulas antes do cliente.'
-            : 'Seu onboarding com a Kosmos acontece aqui.'}
-        </p>
+        {isStaff ? (
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Abra qualquer trilha para pré-visualizar as aulas antes do cliente.
+          </p>
+        ) : (
+          <div className="max-w-2xl space-y-1.5">
+            <p className="text-base font-medium text-foreground">
+              Tudo que conecta a Kosmos ao teu negócio, em um só lugar.
+            </p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Faça teu onboarding, acesse materiais exclusivos e aprofunde conhecimentos que vão te
+              ajudar a aproveitar ainda mais o nosso trabalho em conjunto.
+            </p>
+          </div>
+        )}
       </div>
 
       {isStaff ? (
