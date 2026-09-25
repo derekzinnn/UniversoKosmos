@@ -326,6 +326,21 @@ describe('LessonPage', () => {
     expect(screen.getByRole('button', { name: 'Sair do modo teatro' })).toBeInTheDocument();
   });
 
+  it('toggles theater mode with the "T" key', async () => {
+    const user = userEvent.setup();
+    renderLesson('lesson-2');
+    await screen.findByRole('heading', { name: 'Como funciona' });
+
+    // Outline is there; pressing T hides it (theater on).
+    expect(screen.getByRole('navigation', { name: 'Aulas da trilha' })).toBeInTheDocument();
+    await user.keyboard('t');
+    expect(screen.queryByRole('navigation', { name: 'Aulas da trilha' })).not.toBeInTheDocument();
+
+    // Pressing T again brings it back (theater off).
+    await user.keyboard('T');
+    expect(screen.getByRole('navigation', { name: 'Aulas da trilha' })).toBeInTheDocument();
+  });
+
   /** A single-module track with `count` lessons, for the outline window. */
   function manyLessonTrack(count: number) {
     return {
