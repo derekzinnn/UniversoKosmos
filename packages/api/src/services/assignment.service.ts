@@ -135,7 +135,22 @@ export function listMyTracks(context: RequestContext): Promise<MyTrack[]> {
     if (context.role === 'SUPERADMIN') return [];
 
     const assignments = await listAssignedTracks(db);
-    const tracks = assignments.map((assignment) => assignment.track);
+
+    // The per-client access denylist: lessons this tenant should not see are
+    // removed from every track before anything is counted or returned, and a
+    // module left with no visible lesson is dropped so no empty heading shows.
+    const hiddenLessonIds = new Set(
+      (await db.hiddenLesson.findMany({ select: { lessonId: true } })).map((row) => row.lessonId),
+    );
+    const tracks = assignments.map((assignment) => ({
+      ...assignment.track,
+      modules: (assignment.track.modules ?? [])
+        .map((module) => ({
+          ...module,
+          lessons: module.lessons.filter((lesson) => !hiddenLessonIds.has(lesson.id)),
+        }))
+        .filter((module) => module.lessons.length > 0),
+    }));
 
     // One progress query for every lesson across every trilha, rather than one
     // per track: the classroom already proved these rows are cheap to read.

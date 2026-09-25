@@ -106,6 +106,22 @@ export interface ScopedDb {
     findMany(args?: Prisma.WatchEventFindManyArgs): Promise<Prisma.WatchEventModel[]>;
     count(args?: Prisma.WatchEventCountArgs): Promise<number>;
   };
+
+  /**
+   * Which lessons are hidden from this tenant — the per-client access denylist.
+   *
+   * A row means "this lesson does not exist for this client". The client reads
+   * it to filter their own path; staff write it (scoped to the one tenant they
+   * are configuring). `createMany` and `deleteMany` are the primitives the
+   * "set the whole track's access at once" operation needs.
+   */
+  readonly hiddenLesson: {
+    findMany(args?: Prisma.HiddenLessonFindManyArgs): Promise<Prisma.HiddenLessonModel[]>;
+    count(args?: Prisma.HiddenLessonCountArgs): Promise<number>;
+    create(data: Prisma.HiddenLessonUncheckedCreateInput): Promise<Prisma.HiddenLessonModel>;
+    createMany(args: Prisma.HiddenLessonCreateManyArgs): Promise<{ count: number }>;
+    deleteMany(args: Prisma.HiddenLessonDeleteManyArgs): Promise<{ count: number }>;
+  };
 }
 
 export function createScopedDb(client: DbClient, scope: TenantScope): ScopedDb {
@@ -210,6 +226,26 @@ export function createScopedDb(client: DbClient, scope: TenantScope): ScopedDb {
         client.watchEvent.findMany({ ...args, where: { ...args.where, ...byTenantId } }),
       count: (args = {}) =>
         client.watchEvent.count({ ...args, where: { ...args.where, ...byTenantId } }),
+    },
+
+    hiddenLesson: {
+      findMany: (args = {}) =>
+        client.hiddenLesson.findMany({ ...args, where: { ...args.where, ...byTenantId } }),
+      count: (args = {}) =>
+        client.hiddenLesson.count({ ...args, where: { ...args.where, ...byTenantId } }),
+      create: (data) => client.hiddenLesson.create({ data: { ...data, ...byTenantId } }),
+      // Every row in the batch is pinned to the active tenant, so the guard's
+      // per-row data check passes and no row can be written for another tenant.
+      createMany: (args) =>
+        client.hiddenLesson.createMany({
+          ...args,
+          data: (Array.isArray(args.data) ? args.data : [args.data]).map((row) => ({
+            ...row,
+            ...byTenantId,
+          })) as Prisma.HiddenLessonCreateManyInput[],
+        }),
+      deleteMany: (args) =>
+        client.hiddenLesson.deleteMany({ ...args, where: { ...args.where, ...byTenantId } }),
     },
   };
 }
