@@ -8,10 +8,17 @@ import { FullPageLoader } from '@/components/states/FullPageLoader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { messageFor } from '@/lib/api-error';
 import {
   clientApi,
-  type ClientDrilldown,
   type DrilldownMember,
   type DrilldownTrack,
   type MemberLessonStatus,
@@ -41,6 +48,9 @@ export function ClientDrilldownPage() {
   const { tenantId = '' } = useParams<{ tenantId: string }>();
   const queryClient = useQueryClient();
   const [pendingLessonId, setPendingLessonId] = useState<string | null>(null);
+  // Which track the per-track section is showing. Null until the admin picks
+  // one, so it defaults to the first track once the data has loaded.
+  const [pickedTrackId, setPickedTrackId] = useState<string | null>(null);
 
   const drilldown = useQuery({
     queryKey: ['client-drilldown', tenantId],
@@ -81,6 +91,9 @@ export function ClientDrilldownPage() {
 
   const hidden = new Set(hiddenLessonIds);
 
+  // The track the per-track section shows: the admin's pick, or the first one.
+  const selectedTrack = tracks.find((track) => track.id === (pickedTrackId ?? tracks[0]?.id));
+
   return (
     <div className="space-y-8">
       <BackLink />
@@ -119,120 +132,166 @@ export function ClientDrilldownPage() {
         )}
       </section>
 
-      {tracks.length > 0 ? (
-        <LessonAccessSection
+      {!selectedTrack ? (
+        <Card>
+          <EmptyState
+            icon={Users}
+            title="Nenhuma trilha atribuída"
+            description="Atribua uma trilha a este cliente para configurar o acesso e acompanhar as aulas assistidas."
+          />
+        </Card>
+      ) : (
+        <TrackSection
           tracks={tracks}
+          members={members}
+          selectedTrack={selectedTrack}
+          onSelectTrack={setPickedTrackId}
           hidden={hidden}
           pendingLessonId={pendingLessonId}
+          cellStatus={cellStatus}
           onToggle={(lessonId, currentlyHidden) =>
             setVisibility.mutate({ lessonId, visible: currentlyHidden })
           }
         />
-      ) : null}
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium text-muted-foreground">Progresso por aula</h2>
-        {tracks.length === 0 ? (
-          <Card>
-            <EmptyState
-              icon={Users}
-              title="Nenhuma trilha atribuída"
-              description="Atribua uma trilha a este cliente para acompanhar o progresso aula a aula."
-            />
-          </Card>
-        ) : members.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            A matriz aparece quando houver pessoas para acompanhar.
-          </p>
-        ) : (
-          <ProgressMatrix data={drilldown.data} cellStatus={cellStatus} />
-        )}
-      </section>
+      )}
     </div>
   );
 }
 
 /**
- * Per-client lesson access. Every lesson of every assigned track, each with a
- * visible/hidden toggle — the denylist the client's classroom obeys. Hiding a
- * lesson removes it from that client's trilha entirely (server-enforced), so
- * this is where staff tailor one company's path without touching the shared
- * content.
+ * One track's per-client controls, chosen from a selector so a company with
+ * many trilhas stays readable — one at a time rather than a long stacked wall.
+ * Two tabs over the selected track: "Acesso às aulas" (the visible/hidden
+ * denylist) and "Aulas assistidas" (who has watched what).
  */
-function LessonAccessSection({
+function TrackSection({
   tracks,
+  members,
+  selectedTrack,
+  onSelectTrack,
+  hidden,
+  pendingLessonId,
+  cellStatus,
+  onToggle,
+}: {
+  tracks: DrilldownTrack[];
+  members: DrilldownMember[];
+  selectedTrack: DrilldownTrack;
+  onSelectTrack: (trackId: string) => void;
+  hidden: Set<string>;
+  pendingLessonId: string | null;
+  cellStatus: Map<string, MemberLessonStatus>;
+  onToggle: (lessonId: string, currentlyHidden: boolean) => void;
+}) {
+  return (
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-sm font-medium text-muted-foreground">Trilha</h2>
+        <Select value={selectedTrack.id} onValueChange={onSelectTrack}>
+          <SelectTrigger className="w-full sm:w-80">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {tracks.map((track) => (
+              <SelectItem key={track.id} value={track.id}>
+                {track.title}
+                {track.published ? '' : ' (rascunho)'}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Tabs defaultValue="access" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="access">Acesso às aulas</TabsTrigger>
+          <TabsTrigger value="watched">Aulas assistidas</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="access" className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Deixe visível apenas o que este cliente deve ver. Uma aula oculta some da trilha dele — e
+            não trava a sequência nem conta para a conclusão.
+          </p>
+          <LessonAccessList
+            track={selectedTrack}
+            hidden={hidden}
+            pendingLessonId={pendingLessonId}
+            onToggle={onToggle}
+          />
+        </TabsContent>
+
+        <TabsContent value="watched" className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Quais aulas desta trilha cada pessoa já assistiu.
+          </p>
+          {members.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Aparece quando houver pessoas para acompanhar.
+            </p>
+          ) : (
+            <WatchedLessons track={selectedTrack} members={members} cellStatus={cellStatus} />
+          )}
+        </TabsContent>
+      </Tabs>
+    </section>
+  );
+}
+
+/** The visible/hidden toggle list for one track — the per-client denylist. */
+function LessonAccessList({
+  track,
   hidden,
   pendingLessonId,
   onToggle,
 }: {
-  tracks: DrilldownTrack[];
+  track: DrilldownTrack;
   hidden: Set<string>;
   pendingLessonId: string | null;
   onToggle: (lessonId: string, currentlyHidden: boolean) => void;
 }) {
   return (
-    <section className="space-y-3">
-      <div className="space-y-0.5">
-        <h2 className="text-sm font-medium text-muted-foreground">Acesso às aulas</h2>
-        <p className="text-xs text-muted-foreground">
-          Deixe visível apenas o que este cliente deve ver. Uma aula oculta some da trilha dele — e
-          não trava a sequência nem conta para a conclusão.
-        </p>
-      </div>
-
-      <div className="space-y-4">
-        {tracks.map((track) => (
-          <Card key={track.id} className="p-4">
-            <p className="mb-2 text-sm font-semibold">
-              {track.title}
-              {track.published ? '' : ' (rascunho)'}
-            </p>
-            <ul className="divide-y divide-border">
-              {track.modules.flatMap((module) =>
-                module.lessons.map((lesson) => {
-                  const isHidden = hidden.has(lesson.id);
-                  return (
-                    <li
-                      key={lesson.id}
-                      className="flex items-center justify-between gap-3 py-2"
-                    >
-                      <span
-                        className={cn(
-                          'min-w-0 truncate text-sm',
-                          isHidden && 'text-muted-foreground line-through',
-                        )}
-                      >
-                        {lesson.title}
-                        {!lesson.isRequired ? (
-                          <span className="ml-2 text-xs text-muted-foreground no-underline">
-                            opcional
-                          </span>
-                        ) : null}
-                      </span>
-                      <Button
-                        variant={isHidden ? 'ghost' : 'outline'}
-                        size="sm"
-                        className="shrink-0"
-                        loading={pendingLessonId === lesson.id}
-                        aria-pressed={!isHidden}
-                        onClick={() => onToggle(lesson.id, isHidden)}
-                      >
-                        {isHidden ? (
-                          <EyeOff className="size-4" aria-hidden />
-                        ) : (
-                          <Eye className="size-4" aria-hidden />
-                        )}
-                        {isHidden ? 'Oculta' : 'Visível'}
-                      </Button>
-                    </li>
-                  );
-                }),
-              )}
-            </ul>
-          </Card>
-        ))}
-      </div>
-    </section>
+    <Card className="p-4">
+      <ul className="divide-y divide-border">
+        {track.modules.flatMap((module) =>
+          module.lessons.map((lesson) => {
+            const isHidden = hidden.has(lesson.id);
+            return (
+              <li key={lesson.id} className="flex items-center justify-between gap-3 py-2">
+                <span
+                  className={cn(
+                    'min-w-0 truncate text-sm',
+                    isHidden && 'text-muted-foreground line-through',
+                  )}
+                >
+                  {lesson.title}
+                  {!lesson.isRequired ? (
+                    <span className="ml-2 text-xs text-muted-foreground no-underline">
+                      opcional
+                    </span>
+                  ) : null}
+                </span>
+                <Button
+                  variant={isHidden ? 'ghost' : 'outline'}
+                  size="sm"
+                  className="shrink-0"
+                  loading={pendingLessonId === lesson.id}
+                  aria-pressed={!isHidden}
+                  onClick={() => onToggle(lesson.id, isHidden)}
+                >
+                  {isHidden ? (
+                    <EyeOff className="size-4" aria-hidden />
+                  ) : (
+                    <Eye className="size-4" aria-hidden />
+                  )}
+                  {isHidden ? 'Oculta' : 'Visível'}
+                </Button>
+              </li>
+            );
+          }),
+        )}
+      </ul>
+    </Card>
   );
 }
 
@@ -292,14 +351,21 @@ function lastSeen(member: DrilldownMember): string {
   return `Última atividade ${relativeTime(member.lastActivityAt ?? member.lastLoginAt)}`;
 }
 
-function ProgressMatrix({
-  data,
+/**
+ * "Aulas assistidas" for one track: its lessons down the side, the client's
+ * people across the top, one mark per cell — concluída, em andamento, or não
+ * iniciada. Scoped to the selected track so the table stays readable.
+ */
+function WatchedLessons({
+  track,
+  members,
   cellStatus,
 }: {
-  data: ClientDrilldown;
+  track: DrilldownTrack;
+  members: DrilldownMember[];
   cellStatus: Map<string, MemberLessonStatus>;
 }) {
-  const { members, tracks } = data;
+  const lessons = track.modules.flatMap((module) => module.lessons);
 
   return (
     <div className="overflow-x-auto rounded-xl border border-border">
@@ -319,50 +385,24 @@ function ProgressMatrix({
           </tr>
         </thead>
         <tbody>
-          {tracks.map((track) => (
-            <TrackRows key={track.id} track={track} members={members} cellStatus={cellStatus} />
+          {lessons.map((lesson) => (
+            <tr key={lesson.id} className="border-b border-border last:border-0">
+              <td className="sticky left-0 z-10 max-w-xs bg-background p-3">
+                <span className="block truncate">{lesson.title}</span>
+                {!lesson.isRequired ? (
+                  <span className="text-xs text-muted-foreground">opcional</span>
+                ) : null}
+              </td>
+              {members.map((member) => (
+                <td key={member.id} className="p-3 text-center">
+                  <StatusMark status={cellStatus.get(`${member.id}|${lesson.id}`)} />
+                </td>
+              ))}
+            </tr>
           ))}
         </tbody>
       </table>
     </div>
-  );
-}
-
-function TrackRows({
-  track,
-  members,
-  cellStatus,
-}: {
-  track: ClientDrilldown['tracks'][number];
-  members: DrilldownMember[];
-  cellStatus: Map<string, MemberLessonStatus>;
-}) {
-  return (
-    <>
-      <tr className="border-b border-border bg-card">
-        <td colSpan={members.length + 1} className="p-2.5 pl-3 text-xs font-semibold tracking-wide">
-          {track.title}
-          {track.published ? '' : ' (rascunho)'}
-        </td>
-      </tr>
-      {track.modules.flatMap((module) =>
-        module.lessons.map((lesson) => (
-          <tr key={lesson.id} className="border-b border-border last:border-0">
-            <td className="sticky left-0 z-10 max-w-xs bg-background p-3">
-              <span className="block truncate">{lesson.title}</span>
-              {!lesson.isRequired ? (
-                <span className="text-xs text-muted-foreground">opcional</span>
-              ) : null}
-            </td>
-            {members.map((member) => (
-              <td key={member.id} className="p-3 text-center">
-                <StatusMark status={cellStatus.get(`${member.id}|${lesson.id}`)} />
-              </td>
-            ))}
-          </tr>
-        )),
-      )}
-    </>
   );
 }
 

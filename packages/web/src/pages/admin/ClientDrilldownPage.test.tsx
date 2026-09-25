@@ -80,7 +80,10 @@ describe('ClientDrilldownPage', () => {
     expect(await screen.findByRole('heading', { name: 'Empresa Alfa' })).toBeInTheDocument();
     expect(screen.getByText('ana@alfa.com.br')).toBeInTheDocument();
 
-    // The matrix lists both lessons and marks the completed one for the member.
+    // "Aulas assistidas" is a tab; opening it reveals the per-track matrix.
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'Aulas assistidas' }));
+
     const table = screen.getByRole('table');
     expect(within(table).getByText('Bem-vindo')).toBeInTheDocument();
     expect(within(table).getByText('Configuração')).toBeInTheDocument();
@@ -95,18 +98,17 @@ describe('ClientDrilldownPage', () => {
     expect(drilldown).toHaveBeenCalledWith('t1');
   });
 
-  it('hides a lesson for the client from the access section', async () => {
+  it('hides a lesson for the client from the access tab', async () => {
     const user = userEvent.setup();
     drilldown.mockResolvedValue(data);
     setLessonVisibility.mockResolvedValue({ lessonId: 'l2', hidden: true });
 
     renderPage();
-    const section = (await screen.findByRole('heading', { name: 'Acesso às aulas' })).closest(
-      'section',
-    ) as HTMLElement;
+    // The "Acesso às aulas" tab is open by default.
+    const panel = await screen.findByRole('tabpanel');
 
     // The lesson "Configuração" is visible; its toggle hides it (visible: false).
-    const row = within(section).getByText('Configuração').closest('li') as HTMLElement;
+    const row = within(panel).getByText('Configuração').closest('li') as HTMLElement;
     await user.click(within(row).getByRole('button', { name: /Visível/ }));
 
     expect(setLessonVisibility).toHaveBeenCalledWith('t1', 'l2', false);
@@ -118,14 +120,45 @@ describe('ClientDrilldownPage', () => {
     setLessonVisibility.mockResolvedValue({ lessonId: 'l2', hidden: false });
 
     renderPage();
-    const section = (await screen.findByRole('heading', { name: 'Acesso às aulas' })).closest(
-      'section',
-    ) as HTMLElement;
+    const panel = await screen.findByRole('tabpanel');
 
-    const row = within(section).getByText('Configuração').closest('li') as HTMLElement;
+    const row = within(panel).getByText('Configuração').closest('li') as HTMLElement;
     // A hidden lesson reads "Oculta"; clicking shows it again (visible: true).
     await user.click(within(row).getByRole('button', { name: /Oculta/ }));
 
     expect(setLessonVisibility).toHaveBeenCalledWith('t1', 'l2', true);
+  });
+
+  it('scopes the per-track view to the selected track, offering the others in the selector', async () => {
+    drilldown.mockResolvedValue({
+      ...data,
+      tracks: [
+        ...data.tracks,
+        {
+          id: 'tr2',
+          title: 'Avançado',
+          published: true,
+          modules: [
+            {
+              id: 'm2',
+              title: 'Módulo A',
+              lessons: [{ id: 'l9', title: 'Escala', isRequired: true }],
+            },
+          ],
+        },
+      ],
+    });
+
+    renderPage();
+    const panel = await screen.findByRole('tabpanel');
+
+    // Only the selected (first) track's lessons show; the second is not stacked
+    // in — the whole point of the selector on a client with many trilhas.
+    expect(within(panel).getByText('Bem-vindo')).toBeInTheDocument();
+    expect(within(panel).queryByText('Escala')).not.toBeInTheDocument();
+
+    // The selector is present and shows the track in view.
+    const selector = screen.getByRole('combobox');
+    expect(within(selector).getByText('Onboarding')).toBeInTheDocument();
   });
 });
