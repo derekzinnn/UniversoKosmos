@@ -46,7 +46,7 @@ export interface AuthenticatedUser {
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   /**
    * A raw (non-JSON) body — an image upload, say. When set, it is sent as-is

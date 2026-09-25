@@ -1,3 +1,5 @@
+import { prisma } from '../db/prisma.js';
+import { createScopedDb } from '../db/scoped-db.js';
 import { NotFoundError } from '../lib/errors.js';
 import {
   findClientTenant,
@@ -6,6 +8,9 @@ import {
   listClientProgress,
 } from '../repositories/client-drilldown.repository.js';
 import type { RequestContext } from '../types/request-context.js';
+import { metadataOf } from '../types/request-context.js';
+import { AuditAction, AuditEntity } from './audit.actions.js';
+import { audit } from './audit.service.js';
 import { runAsSuperadminOnTenant } from './scope.service.js';
 
 export type MemberLessonStatus = 'completed' | 'in_progress';
@@ -62,6 +67,12 @@ export interface ClientDrilldown {
   readonly tracks: DrilldownTrack[];
   /** Sparse: only the (member, lesson) pairs that have any progress at all. */
   readonly progress: DrilldownProgress[];
+  /**
+   * Lessons this client cannot see — the per-client access denylist. The admin
+   * screen shows every lesson and marks these as hidden; a lesson not listed
+   * here is visible to the client.
+   */
+  readonly hiddenLessonIds: string[];
 }
 
 /**
@@ -86,10 +97,11 @@ export function getClientDrilldown(
     const tenant = await findClientTenant(db, tenantId);
     if (!tenant) throw new NotFoundError('Tenant not found', 'TENANT_NOT_FOUND');
 
-    const [members, assignments, progress] = await Promise.all([
+    const [members, assignments, progress, hidden] = await Promise.all([
       listClientMembers(db),
       listClientAssignedTracks(db),
       listClientProgress(db),
+      db.hiddenLesson.findMany({ select: { lessonId: true } }),
     ]);
 
     const tracks: DrilldownTrack[] = assignments.map((assignment) => ({
@@ -171,6 +183,57 @@ export function getClientDrilldown(
       members: membersOut,
       tracks,
       progress: progressOut,
+      hiddenLessonIds: hidden.map((row) => row.lessonId),
     };
+  });
+}
+
+/**
+ * Hide a lesson from, or show it to, one client company.
+ *
+ * The same audited reach-into-one-tenant as the drill-down, so it runs through
+ * `runAsSuperadminOnTenant`, which pins every write to that tenant and records
+ * the access. The change itself is a denylist row: hiding creates one (idempotent
+ * — a second hide is a no-op), showing deletes it. The write and its audit share
+ * one transaction, and the audit fires only on a real transition so repeating an
+ * action does not litter the ledger.
+ */
+export function setClientLessonVisibility(
+  context: RequestContext,
+  tenantId: string,
+  lessonId: string,
+  visible: boolean,
+): Promise<{ lessonId: string; hidden: boolean }> {
+  return runAsSuperadminOnTenant(context, tenantId, 'client-lesson-access', async (db) => {
+    const tenant = await findClientTenant(db, tenantId);
+    if (!tenant) throw new NotFoundError('Tenant not found', 'TENANT_NOT_FOUND');
+
+    // The lesson must exist; hiding a phantom id would fail the foreign key
+    // anyway, and showing one is a no-op we would rather answer honestly.
+    const lesson = await db.raw.lesson.findUnique({ where: { id: lessonId } });
+    if (!lesson) throw new NotFoundError('Lesson not found', 'LESSON_NOT_FOUND');
+
+    await prisma.$transaction(async (tx) => {
+      const scopedTx = createScopedDb(tx, db.scope);
+
+      const changed = visible
+        ? (await scopedTx.hiddenLesson.deleteMany({ where: { lessonId } })).count > 0
+        : (await scopedTx.hiddenLesson.createMany({ data: [{ lessonId, tenantId }], skipDuplicates: true }))
+            .count > 0;
+
+      if (changed) {
+        await audit(tx, {
+          action: AuditAction.LESSON_ACCESS_CHANGED,
+          actor: { id: context.userId, email: context.email, role: context.role },
+          tenantId,
+          entityType: AuditEntity.LESSON,
+          entityId: lessonId,
+          after: { hidden: !visible, lessonTitle: lesson.title },
+          request: metadataOf(context),
+        });
+      }
+    });
+
+    return { lessonId, hidden: !visible };
   });
 }

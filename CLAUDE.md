@@ -194,7 +194,7 @@ Added in Phase 1: `TRACK_CREATED`, `TRACK_UPDATED`, `TRACK_DELETED`,
 `TRACK_PUBLISHED`, `TRACK_UNPUBLISHED`, `TRACK_ASSIGNED`, `TRACK_UNASSIGNED`,
 `MODULE_CREATED`, `MODULE_UPDATED`, `MODULE_DELETED`, `MODULES_REORDERED`,
 `LESSON_CREATED`, `LESSON_UPDATED`, `LESSON_DELETED`, `LESSONS_REORDERED`,
-`RESOURCE_CREATED`, `RESOURCE_DELETED`.
+`RESOURCE_CREATED`, `RESOURCE_DELETED`, `LESSON_ACCESS_CHANGED`.
 
 Added in Phase 2: `LESSON_COMPLETED`, `MODULE_COMPLETED`, `TRACK_COMPLETED`. Only milestones. A
 heartbeat lands every few seconds per viewer per lesson, and auditing those
@@ -305,6 +305,7 @@ the lesson exists, which is what somebody enumerating ids is trying to learn.
 | `POST`   | `/tracks/:id/cover`  | SUPERADMIN |
 | `DELETE` | `/tracks/:id/cover`  | SUPERADMIN |
 | `GET`    | `/clients/:tenantId` | SUPERADMIN |
+| `PUT`    | `/clients/:tenantId/lessons/:lessonId/visibility` | SUPERADMIN |
 
 `/funnel` is the onboarding overview: every client's furthest stage (invited →
 joined → started → completed) plus the cumulative counts. Like the audit read
@@ -343,7 +344,29 @@ company is logged. Content is read through `TrackAssignment` (the guarded side),
 never `track.findMany`. The response is `{ tenant, members, tracks, progress }`
 where `progress` is a **sparse** matrix — only the (member, lesson) cells that
 have any progress — and the client fills the "not started" blanks, so the
-payload does not balloon to members × lessons.
+payload does not balloon to members × lessons. It also returns `hiddenLessonIds`
+(see below), so the drill-down can show every lesson and mark which ones this
+client cannot see.
+
+**Per-client lesson access is a denylist.** The library is shared — one Track
+row, many companies — so "which lessons can this client see" cannot live on the
+content. It lives in `HiddenLesson (tenant_id, lesson_id)`: a row means _hidden
+from that tenant_. Assigning a track shows every lesson by default (the
+historical behaviour), and staff hide specific ones per client from the
+drill-down via `PUT /clients/:tenantId/lessons/:lessonId/visibility` — the same
+audited `runAsSuperadminOnTenant` reach, plus a `LESSON_ACCESS_CHANGED` row on a
+real transition. `HiddenLesson` carries the denormalised `tenant_id` and is in
+the tenant guard's model map, so the client reading their own hidden set and
+staff writing it are both scoped like every other tenant table. **The gate is
+server-side, not cosmetic:** a hidden lesson is filtered out of `listMyTracks`,
+`loadTrackState` (progress, complete, heartbeat) and `issueForClient` (playback)
+before anything else runs, so it drops out of the unlock sequence and the
+completion count and 404s exactly like a lesson the client was never assigned —
+a hidden lesson is indistinguishable from one that does not exist. Staff preview
+(`issueForStaff`) is deliberately unfiltered: staff test all content. The
+`hidden_lessons` table is a hand-written migration; **apply it to the database
+before this code runs** (`npm run db:deploy`), since every client read now
+queries it.
 
 The read side of the audit ledger. **This one _is_ behind a role gate**, and
 that is the right question here: the log spans every client and records many

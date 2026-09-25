@@ -1,13 +1,17 @@
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { clientApi, type ClientDrilldown } from '@/lib/client-api';
 import { renderWithProviders } from '@/test/render';
 import { ClientDrilldownPage } from './ClientDrilldownPage';
 
-vi.mock('@/lib/client-api', () => ({ clientApi: { drilldown: vi.fn() } }));
+vi.mock('@/lib/client-api', () => ({
+  clientApi: { drilldown: vi.fn(), setLessonVisibility: vi.fn() },
+}));
 
 const drilldown = vi.mocked(clientApi.drilldown);
+const setLessonVisibility = vi.mocked(clientApi.setLessonVisibility);
 
 const data: ClientDrilldown = {
   tenant: {
@@ -51,6 +55,7 @@ const data: ClientDrilldown = {
   progress: [
     { userId: 'u1', lessonId: 'l1', status: 'completed', completedAt: '2026-08-20T00:00:00.000Z' },
   ],
+  hiddenLessonIds: [],
 };
 
 function renderPage() {
@@ -88,5 +93,39 @@ describe('ClientDrilldownPage', () => {
     renderPage();
     await screen.findByRole('heading', { name: 'Empresa Alfa' });
     expect(drilldown).toHaveBeenCalledWith('t1');
+  });
+
+  it('hides a lesson for the client from the access section', async () => {
+    const user = userEvent.setup();
+    drilldown.mockResolvedValue(data);
+    setLessonVisibility.mockResolvedValue({ lessonId: 'l2', hidden: true });
+
+    renderPage();
+    const section = (await screen.findByRole('heading', { name: 'Acesso às aulas' })).closest(
+      'section',
+    ) as HTMLElement;
+
+    // The lesson "Configuração" is visible; its toggle hides it (visible: false).
+    const row = within(section).getByText('Configuração').closest('li') as HTMLElement;
+    await user.click(within(row).getByRole('button', { name: /Visível/ }));
+
+    expect(setLessonVisibility).toHaveBeenCalledWith('t1', 'l2', false);
+  });
+
+  it('marks an already-hidden lesson and shows it again on click', async () => {
+    const user = userEvent.setup();
+    drilldown.mockResolvedValue({ ...data, hiddenLessonIds: ['l2'] });
+    setLessonVisibility.mockResolvedValue({ lessonId: 'l2', hidden: false });
+
+    renderPage();
+    const section = (await screen.findByRole('heading', { name: 'Acesso às aulas' })).closest(
+      'section',
+    ) as HTMLElement;
+
+    const row = within(section).getByText('Configuração').closest('li') as HTMLElement;
+    // A hidden lesson reads "Oculta"; clicking shows it again (visible: true).
+    await user.click(within(row).getByRole('button', { name: /Oculta/ }));
+
+    expect(setLessonVisibility).toHaveBeenCalledWith('t1', 'l2', true);
   });
 });

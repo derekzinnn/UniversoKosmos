@@ -52,8 +52,17 @@ export interface ClientDrilldown {
   members: DrilldownMember[];
   tracks: DrilldownTrack[];
   progress: DrilldownProgress[];
+  /** Lessons hidden from this client — the per-client access denylist. */
+  hiddenLessonIds: string[];
 }
 
 export const clientApi = {
   drilldown: (tenantId: string) => request<ClientDrilldown>(`/clients/${tenantId}`),
+
+  /** Hide or show one lesson for this client. */
+  setLessonVisibility: (tenantId: string, lessonId: string, visible: boolean) =>
+    request<{ lessonId: string; hidden: boolean }>(
+      `/clients/${tenantId}/lessons/${lessonId}/visibility`,
+      { method: 'PUT', body: { visible } },
+    ),
 };

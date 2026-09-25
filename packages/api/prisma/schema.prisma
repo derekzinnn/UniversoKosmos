@@ -59,6 +59,7 @@ model Tenant {
   trackAssignments TrackAssignment[]
   lessonProgress   LessonProgress[]
   watchEvents      WatchEvent[]
+  hiddenLessons    HiddenLesson[]
 
   @@index([status])
   @@map("tenants")
@@ -221,6 +222,7 @@ model Lesson {
   resources   Resource[]
   progress    LessonProgress[]
   watchEvents WatchEvent[]
+  hiddenFor   HiddenLesson[]
 
   @@unique([moduleId, order])
   @@index([moduleId])
@@ -259,6 +261,29 @@ model TrackAssignment {
   @@unique([trackId, tenantId])
   @@index([tenantId])
   @@map("track_assignments")
+}
+
+/// A single lesson hidden from one client company.
+///
+/// The access model is a *denylist*: assigning a track shows every lesson by
+/// default (the historical behaviour), and a row here removes one lesson from
+/// one tenant's view. Presence means hidden. It carries a denormalised
+/// `tenantId` so the tenant guard treats it like every other scoped table —
+/// both the client reading their own hidden set and staff configuring it run
+/// scoped to the one tenant.
+model HiddenLesson {
+  id        String   @id @default(uuid(7))
+  tenantId  String   @map("tenant_id")
+  lessonId  String   @map("lesson_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, lessonId])
+  @@index([tenantId])
+  @@index([lessonId])
+  @@map("hidden_lessons")
 }
 
 // ─── Progress (schema now, logic in Phase 2) ───────────────────────────
