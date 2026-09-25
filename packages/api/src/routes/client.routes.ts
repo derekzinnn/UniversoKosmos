@@ -21,9 +21,10 @@ clientRouter.get('/:tenantId', requireRole('SUPERADMIN'), clientDrilldownHandler
 
 /**
  * Hide or show one lesson for this client. Same audited reach-into-one-tenant
- * as the drill-down; the body is `{ visible: boolean }`.
+ * as the drill-down; the body is `{ visible: boolean }`. PATCH, matching the
+ * codebase's other partial updates (and the CORS allow-list).
  */
-clientRouter.put(
+clientRouter.patch(
   '/:tenantId/lessons/:lessonId/visibility',
   requireRole('SUPERADMIN'),
   validateBody(lessonVisibilitySchema),

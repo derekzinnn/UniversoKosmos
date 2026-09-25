@@ -63,6 +63,6 @@ export const clientApi = {
   setLessonVisibility: (tenantId: string, lessonId: string, visible: boolean) =>
     request<{ lessonId: string; hidden: boolean }>(
       `/clients/${tenantId}/lessons/${lessonId}/visibility`,
-      { method: 'PUT', body: { visible } },
+      { method: 'PATCH', body: { visible } },
     ),
 };

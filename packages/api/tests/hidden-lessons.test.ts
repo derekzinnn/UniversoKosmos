@@ -27,7 +27,7 @@ beforeEach(() => {
 
 function hide(superToken: string, tenantId: string, lessonId: string, visible: boolean) {
   return api()
-    .put(`/clients/${tenantId}/lessons/${lessonId}/visibility`)
+    .patch(`/clients/${tenantId}/lessons/${lessonId}/visibility`)
     .set('Authorization', bearer(superToken))
     .send({ visible });
 }
@@ -162,7 +162,7 @@ describe('per-client lesson access', () => {
     const { tenant, lessons, ownerToken } = await setup(3);
 
     await api()
-      .put(`/clients/${tenant.id}/lessons/${lessons[1]!.id}/visibility`)
+      .patch(`/clients/${tenant.id}/lessons/${lessons[1]!.id}/visibility`)
       .set('Authorization', bearer(ownerToken))
       .send({ visible: false })
       .expect(403);
