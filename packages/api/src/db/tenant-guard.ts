@@ -17,6 +17,7 @@ const TENANT_KEY_BY_MODEL: Readonly<Record<string, string>> = {
   TrackAssignment: 'tenantId',
   LessonProgress: 'tenantId',
   WatchEvent: 'tenantId',
+  HiddenLesson: 'tenantId',
 };
 
 const CREATE_OPERATIONS = new Set(['create', 'createMany', 'createManyAndReturn']);

@@ -134,11 +134,22 @@ async function loadTrackState(db: ScopedDb, userId: string, lessonId: string) {
   const assignment = await findAssignedTrackContainingLesson(db, lessonId);
   if (!assignment) throw new NotFoundError('Lesson not found', 'LESSON_NOT_FOUND');
 
-  const ordered = lessonsInOrder(toUnlockModules(assignment.track.modules));
+  // Lessons this client company was told not to see are removed from the path
+  // entirely — they do not unlock, do not block the next lesson, and do not
+  // count towards completion. A hidden lesson is then indistinguishable from
+  // one that does not exist, so a request for it 404s exactly like an unassigned
+  // one: the filter below drops it from `ordered`, and the `lesson` lookup fails.
+  const hiddenLessonIds = new Set(
+    (await db.hiddenLesson.findMany({ select: { lessonId: true } })).map((row) => row.lessonId),
+  );
+  const ordered = lessonsInOrder(toUnlockModules(assignment.track.modules)).filter(
+    (candidate) => !hiddenLessonIds.has(candidate.id),
+  );
   const lesson = ordered.find((candidate) => candidate.id === lessonId);
 
-  // The query matched on this lesson, so the track contains it. If this ever
-  // fires, the flattening lost a row and every unlock decision is suspect.
+  // The query matched on this lesson, so the track contains it — but it may be
+  // hidden from this client, in which case it was just filtered out and this is
+  // a 404, the same answer a never-assigned lesson gets.
   if (!lesson) {
     throw new NotFoundError('Lesson not found', 'LESSON_NOT_FOUND');
   }

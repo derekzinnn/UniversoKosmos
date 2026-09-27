@@ -78,6 +78,12 @@ function issueForClient(context: RequestContext, lessonId: string): Promise<Play
     // exactly what somebody probing ids is trying to learn.
     if (!assignment) throw new NotFoundError('Lesson not found', 'LESSON_NOT_FOUND');
 
+    // Lessons hidden from this client are removed from the path, so unlock is
+    // computed over what they can actually see and a hidden lesson mints no URL
+    // — it 404s like an unassigned one rather than confirming it exists.
+    const hiddenLessonIds = new Set(
+      (await db.hiddenLesson.findMany({ select: { lessonId: true } })).map((row) => row.lessonId),
+    );
     const ordered = lessonsInOrder(
       assignment.track.modules.map((module) => ({
         id: module.id,
@@ -90,7 +96,7 @@ function issueForClient(context: RequestContext, lessonId: string): Promise<Play
           externalVideoId: lesson.externalVideoId,
         })),
       })),
-    );
+    ).filter((candidate) => !hiddenLessonIds.has(candidate.id));
 
     const lesson = ordered.find((candidate) => candidate.id === lessonId);
     if (!lesson) throw new NotFoundError('Lesson not found', 'LESSON_NOT_FOUND');

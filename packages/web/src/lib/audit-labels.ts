@@ -56,6 +56,7 @@ const ACTION_LABELS: Readonly<Record<string, AuditActionLabel>> = {
   LESSON_UPDATED: { label: 'Aula editada', tone: 'neutral' },
   LESSON_DELETED: { label: 'Aula excluída', tone: 'alert' },
   LESSONS_REORDERED: { label: 'Aulas reordenadas', tone: 'neutral' },
+  LESSON_ACCESS_CHANGED: { label: 'Acesso a aula alterado', tone: 'neutral' },
 
   RESOURCE_CREATED: { label: 'Material adicionado', tone: 'neutral' },
   RESOURCE_DELETED: { label: 'Material removido', tone: 'alert' },
