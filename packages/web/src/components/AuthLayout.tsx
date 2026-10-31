@@ -37,11 +37,11 @@ export function AuthLayout({ title, description, children, footer }: AuthLayoutP
 
         <div className="relative max-w-md space-y-3">
           <h2 className="font-display text-[1.75rem] leading-tight font-bold tracking-tight text-balance">
-            Seu onboarding com a Kosmos, do começo ao fim.
+            Tudo que conecta a Kosmos ao teu negócio, em um só lugar.
           </h2>
           <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
-            Suas trilhas, suas aulas e seu progresso em um só lugar. Avance no seu ritmo — a gente
-            acompanha junto.
+            Faça teu onboarding, acesse materiais exclusivos e aprofunde conhecimentos que vão te
+            ajudar a aproveitar ainda mais o nosso trabalho em conjunto.
           </p>
           <p className="pt-2 text-xs tracking-wide text-muted-foreground/70">
             Kosmos Inteligência Digital
