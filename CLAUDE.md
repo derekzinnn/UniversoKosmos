@@ -1,3 +1,14 @@
+---
+nome: Universo Kosmos
+area: kosmos
+fase: em-producao
+repo: derekzinnn/UniversoKosmos
+producao: https://universo.kosmosdigital.com.br
+stack: npm workspaces, Express 5, Prisma 7, Vite + React 19
+deploy: vps-kosmos
+responsavel: Derek
+---
+
 # Universo Kosmos
 
 ## Visão geral
